@@ -23,12 +23,12 @@ class Packet {
 
 class Pipe {
     readonly ends: [Hub, Hub];
-    readonly inflight: IMap<FlightState>;
+    readonly inflight: Map<number, FlightState>;
     private readonly speed: number;
     
     constructor(a: Hub, b: Hub) {
         this.ends = [a, b];
-        this.inflight = {}
+        this.inflight = new Map<number, FlightState>();
         let dx = Math.abs(a.position[0] - b.position[0]);
         let dy = Math.abs(a.position[1] - b.position[1]);
         let distance = Math.sqrt(dx*dx+dy*dy);
@@ -37,9 +37,9 @@ class Pipe {
     
     receive(p: Packet, senderId: number): void {
         if (senderId == this.ends[0].id)
-            this.inflight[p.id] = new FlightState(p, FlightDirection.AB);
+            this.inflight.set(p.id, new FlightState(p, FlightDirection.AB));
         else if (senderId == this.ends[1].id)
-            this.inflight[p.id] = new FlightState(p, FlightDirection.BA);
+            this.inflight.set(p.id, new FlightState(p, FlightDirection.BA));
         else
             throw "Bad id";
     }
@@ -47,12 +47,11 @@ class Pipe {
     step(dt: number): void {
         let delivered: FlightState[] = [];
         
-        for (let key in this.inflight) {
-            let status = this.inflight[key];
-            status.progress += this.speed*dt;
+        for (let flightStatus of this.inflight.values()){
+            flightStatus.progress += this.speed*dt;
             
-            if (status.progress > 1.0)
-                delivered.push(status);
+            if (flightStatus.progress >= 1)
+                delivered.push(flightStatus);
         }
         
         for (let status of delivered) {
@@ -81,10 +80,6 @@ class FlightState {
         this.direction = direction;
         this.progress = 0;
     }
-}
-
-interface IMap<T> {
-    [K: string]: T;
 }
 
 class Hub {
