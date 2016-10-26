@@ -184,7 +184,7 @@ function render(ctx: CanvasRenderingContext2D, pipes: Pipe[], hubs: Hub[], heigh
         const packetSize = 5;
         for (let pkey in p.inflight) {
             const pinfo = p.inflight[pkey];
-            ctx.fillStyle = intToColor(pinfo.packet.id);
+            ctx.fillStyle = intToColor(pinfo.packet.destId);
             if (pinfo.direction == FlightDirection.AB) {
                 let dx = (x2 - x1) * pinfo.progress;
                 let dy = (y2 - y1) * pinfo.progress;
@@ -203,8 +203,8 @@ function render(ctx: CanvasRenderingContext2D, pipes: Pipe[], hubs: Hub[], heigh
     }
     
     const hubsize = 5;
-    ctx.fillStyle = "green";
     for (let h of hubs) {
+        ctx.fillStyle = intToColor(h.id);
         let [x, y] = h.position;
         ctx.fillRect(x*width - (hubsize/2), y*height - (hubsize/2), hubsize, hubsize);
     }
@@ -222,9 +222,9 @@ function main() {
     
     const [hubs, pipes] = generateScene();
     
-    const targetId = hubs[0].id;
     for (let i = 0; i < 200; i++) {
-        hubs[2].receive(new Packet(targetId));
+        const targetId = randomSelection(hubs).id;
+        randomSelection(hubs).receive(new Packet(targetId));
     }
     
     let renderStep = function() {
