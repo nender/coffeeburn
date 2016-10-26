@@ -55,7 +55,7 @@ class Pipe {
         }
         
         for (let status of delivered) {
-            delete this.inflight[status.packet.id];
+            this.inflight.delete(status.packet.id);
             
             if (status.direction === FlightDirection.AB)
                 this.ends[1].receive(status.packet);
@@ -177,18 +177,17 @@ function render(ctx: CanvasRenderingContext2D, pipes: Pipe[], hubs: Hub[], heigh
         ctx.stroke();
         
         const packetSize = 3;
-        for (let pkey in p.inflight) {
-            const pinfo = p.inflight[pkey];
-            ctx.fillStyle = intToColor(pinfo.packet.destId);
-            if (pinfo.direction == FlightDirection.AB) {
-                let dx = (x2 - x1) * pinfo.progress;
-                let dy = (y2 - y1) * pinfo.progress;
+        for (let flightStatus of p.inflight.values()) {
+            ctx.fillStyle = intToColor(flightStatus.packet.destId);
+            if (flightStatus.direction == FlightDirection.AB) {
+                let dx = (x2 - x1) * flightStatus.progress;
+                let dy = (y2 - y1) * flightStatus.progress;
                 ctx.fillRect((x1+dx)*width - packetSize/2,
                     (y1+dy)*height - packetSize/2,
                     packetSize, packetSize);
             } else {
-                let dx = (x1 - x2) * pinfo.progress;
-                let dy = (y1 - y2) * pinfo.progress;
+                let dx = (x1 - x2) * flightStatus.progress;
+                let dy = (y1 - y2) * flightStatus.progress;
                 
                 ctx.fillRect((x2+dx)*width - packetSize/2,
                     (y2+dy)*height - packetSize/2,
