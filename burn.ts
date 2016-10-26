@@ -11,7 +11,7 @@ class Packet {
     destId: number;
     
     constructor(destId: number) {
-        this.id = destId;
+        this.id = getId();
         this.destId = destId;
     }
 }
@@ -24,11 +24,19 @@ class Pipe {
     constructor(a: Hub, b: Hub) {
         this.ends = [a, b];
         this.inflight = {}
-        this.speed = 0.001;
+        let dx = Math.abs(a.position[0] - b.position[0]);
+        let dy = Math.abs(a.position[1] - b.position[1]);
+        let distance = Math.sqrt(dx*dx+dy*dy);
+        this.speed = 1/distance;
     }
     
     receive(p: Packet, senderId: number): void {
-        this.inflight[p.id] = new FlightState(p, senderId);
+        if (senderId == this.ends[0].id)
+            this.inflight[p.id] = new FlightState(p, FlightDirection.AB);
+        else if (senderId == this.ends[1].id)
+            this.inflight[p.id] = new FlightState(p, FlightDirection.BA);
+        else
+            throw "Bad id";
     }
     
     step(dt: number): void {
@@ -45,7 +53,7 @@ class Pipe {
         for (let status of delivered) {
             delete this.inflight[status.packet.id];
             
-            if (status.senderId === this.ends[0].id)
+            if (status.direction === FlightDirection.AB)
                 this.ends[1].receive(status.packet);
             else
                 this.ends[0].receive(status.packet);
@@ -53,14 +61,19 @@ class Pipe {
     }
 }
 
+enum FlightDirection {
+    AB,
+    BA
+}
+
 class FlightState {
     packet: Packet;
     progress: number;
-    senderId: number;
+    direction: FlightDirection;
     
-    constructor(p: Packet, senderId: number) {
+    constructor(p: Packet, direction: FlightDirection) {
         this.packet = p;
-        this.senderId = senderId;
+        this.direction = direction;
         this.progress = 0;
     }
 }
@@ -81,15 +94,19 @@ class Hub {
     }
     
     receive(p: Packet): void {
-        if (p.destId === this.id)
+        if (p.destId === this.id) {
+            //console.log(`P${p.id} delivered to ${this.id}!`);
             return;
+        }
             
         if (this.pipes.length === 0)
             throw "No pipes";
             
         let rawRandom = Math.random();
         let randIndex = Math.floor(rawRandom*this.pipes.length);
-        this.pipes[randIndex].receive(p, this.id);
+        let targetPipe = this.pipes[randIndex];
+        // console.log(`P${p.id} routed from H${this.id} to pipe ${targetPipe.ends[0].id}${targetPipe.ends[1].id}`);
+        targetPipe.receive(p, this.id);
     }
 }
 
@@ -129,16 +146,9 @@ function generateScene(): [Hub[], Pipe[]] {
 function render(ctx: CanvasRenderingContext2D, pipes: Pipe[], hubs: Hub[], height: number, width: number): void {
     ctx.fillStyle = "black";
     ctx.fillRect(0, 0, width, height);
-    ctx.strokeStyle = "white";
+    
     for (let p of pipes) {
-        let count = 0;
-        for (let k in p.inflight)
-            count += 1;
-            
-        if (count !== 0)
-            ctx.strokeStyle = "red";
-        else
-            ctx.strokeStyle = "white";
+        ctx.strokeStyle = "grey";
             
         let [x1, y1] = p.ends[0].position;
         let [x2, y2] = p.ends[1].position;
@@ -146,6 +156,26 @@ function render(ctx: CanvasRenderingContext2D, pipes: Pipe[], hubs: Hub[], heigh
         ctx.moveTo(x1*width, y1*height);
         ctx.lineTo(x2*width, y2*height);
         ctx.stroke();
+        
+        const packetSize = 5;
+        ctx.fillStyle = "red";
+        for (let pkey in p.inflight) {
+            let pinfo = p.inflight[pkey];
+            if (pinfo.direction == FlightDirection.AB) {
+                let dx = (x2 - x1) * pinfo.progress;
+                let dy = (y2 - y1) * pinfo.progress;
+                ctx.fillRect((x1+dx)*width - packetSize/2,
+                    (y1+dy)*height - packetSize/2,
+                    packetSize, packetSize);
+            } else {
+                let dx = (x1 - x2) * pinfo.progress;
+                let dy = (y1 - y2) * pinfo.progress;
+                
+                ctx.fillRect((x2+dx)*width - packetSize/2,
+                    (y2+dy)*height - packetSize/2,
+                    packetSize, packetSize);
+            }
+        }
     }
     
     const hubsize = 5;
@@ -169,14 +199,14 @@ function main() {
     let [hubs, pipes] = generateScene();
     
     let targetId = hubs[0].id;
-    for (let i = 0; i < 50; i++) {
+    for (let i = 0; i < 200; i++) {
         hubs[2].receive(new Packet(targetId));
     }
     
     let renderStep = function() {
         render(ctx, pipes, hubs, height, width);
         for (let p of pipes)
-            p.step(0.001);
+            p.step(0.005);
         window.requestAnimationFrame(renderStep);
     }
     
