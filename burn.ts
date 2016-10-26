@@ -153,6 +153,20 @@ function generateScene(): [Hub[], Pipe[]] {
     return [hubs, pipes];
 }
 
+let intToColor = (function() {
+    const colorTable = new Map<number, string>();
+    const r100 = () => Math.floor(Math.random() * 100);
+    return function intToColor(i: number): string {
+        if (colorTable.has(i))
+            return colorTable.get(i);
+        else {
+            const colorString = `rgb(${r100()}%,${r100()}%,${r100()}%)`;
+            colorTable.set(i, colorString);
+            return colorString;
+        }
+    }
+})();
+
 function render(ctx: CanvasRenderingContext2D, pipes: Pipe[], hubs: Hub[], height: number, width: number): void {
     ctx.fillStyle = "black";
     ctx.fillRect(0, 0, width, height);
@@ -168,9 +182,9 @@ function render(ctx: CanvasRenderingContext2D, pipes: Pipe[], hubs: Hub[], heigh
         ctx.stroke();
         
         const packetSize = 5;
-        ctx.fillStyle = "red";
         for (let pkey in p.inflight) {
-            let pinfo = p.inflight[pkey];
+            const pinfo = p.inflight[pkey];
+            ctx.fillStyle = intToColor(pinfo.packet.id);
             if (pinfo.direction == FlightDirection.AB) {
                 let dx = (x2 - x1) * pinfo.progress;
                 let dy = (y2 - y1) * pinfo.progress;
