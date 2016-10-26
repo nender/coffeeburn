@@ -1,3 +1,11 @@
+// ad-hoc config
+let LOGGING = false;
+
+function log(str: string): void {
+    if (LOGGING)
+        console.log(str);
+}
+
 let getId = (function() {
     let id = 0;
     return () => id += 1;
@@ -24,10 +32,16 @@ class Packet {
 class Pipe {
     readonly ends: [Hub, Hub];
     readonly inflight: Map<number, FlightState>;
+    readonly name: string;
     private readonly speed: number;
     
     constructor(a: Hub, b: Hub) {
+        const canonicalEnds: [Hub, Hub] = [a , b];
+        canonicalEnds.sort();
+        this.name = canonicalEnds[0].id + '|' + canonicalEnds[1].id;
+        
         this.ends = [a, b];
+        
         this.inflight = new Map<number, FlightState>();
         let dx = Math.abs(a.position[0] - b.position[0]);
         let dy = Math.abs(a.position[1] - b.position[1]);
@@ -36,10 +50,11 @@ class Pipe {
     }
     
     receive(p: Packet, senderId: number): void {
+        log(`P${p.id} received by ${this.name}`);
         if (senderId == this.ends[0].id)
             this.inflight.set(p.id, new FlightState(p, true));
         else if (senderId == this.ends[1].id)
-            this.inflight.set(p.id, new FlightState(p, true));
+            this.inflight.set(p.id, new FlightState(p, false));
         else
             throw "Bad id";
     }
@@ -57,10 +72,15 @@ class Pipe {
         for (let status of delivered) {
             this.inflight.delete(status.packet.id);
             
-            if (status.flyingAtoB)
-                this.ends[1].receive(status.packet);
-            else
-                this.ends[0].receive(status.packet);
+            let end = (() => {
+                if (status.flyingAtoB)
+                    return this.ends[1];
+                else
+                    return this.ends[0];
+            })();
+            
+            log(`${this.name} handed off P${status.packet.id} to H${end.id}`)
+            end.receive(status.packet);
         }
     }
 }
@@ -90,14 +110,15 @@ class Hub {
     
     receive(p: Packet): void {
         if (p.destId === this.id) {
-            console.log(`P${p.id} delivered to ${this.id}!`);
+            log(`P${p.id} delivered to ${this.id}!`);
             return;
-        }
+       }
             
         if (this.pipes.length === 0)
             throw "No pipes";
             
         let targetPipe = randomSelection(this.pipes);
+        log(`H${this.id} routing P${p.id} on ${targetPipe.name}`);
         targetPipe.receive(p, this.id);
     }
 }
@@ -173,7 +194,7 @@ function render(ctx: CanvasRenderingContext2D, pipes: Pipe[], hubs: Hub[], heigh
         ctx.lineTo(x2*width, y2*height);
         ctx.stroke();
         
-        const packetSize = 3;
+        const packetSize = 4;
         for (let flightStatus of p.inflight.values()) {
             ctx.fillStyle = intToColor(flightStatus.packet.destId);
             if (flightStatus.flyingAtoB) {
@@ -213,7 +234,7 @@ function main() {
     
     const [hubs, pipes] = generateScene();
     
-    for (let i = 0; i < 500; i++) {
+    for (let i = 0; i < 100; i++) {
         const targetId = randomSelection(hubs).id;
         randomSelection(hubs).receive(new Packet(targetId));
     }
