@@ -6,6 +6,11 @@ let getId = function() {
     }
 }();
 
+function randomSelection<T>(target: T[]): T {
+    const index = Math.floor(Math.random() * target.length);
+    return target[index];
+}
+
 class Packet {
     readonly id: number;
     readonly destId: number;
@@ -102,42 +107,48 @@ class Hub {
         if (this.pipes.length === 0)
             throw "No pipes";
             
-        let rawRandom = Math.random();
-        let randIndex = Math.floor(rawRandom*this.pipes.length);
-        let targetPipe = this.pipes[randIndex];
+        let targetPipe = randomSelection(this.pipes);
         targetPipe.receive(p, this.id);
     }
 }
 
 function generateScene(): [Hub[], Pipe[]] {
-    let hubs: Hub[] = [];
+    const hubs: Hub[] = [];
     for (let i = 0; i < 20; i++) {
         let x = Math.random();
         let y = Math.random();
         hubs.push(new Hub(x,y));
     }
     
-    let pipes: Pipe[] = [];
-    for (let self of hubs) {
-        for (let other of hubs) {
-            if (self === other)
-                continue;
-                
-            let bail = false;
-            
-            for (let existing of self.pipes) {
-                if (existing.ends[0].id === other.id || existing.ends[1].id === other.id)
-                    bail = true;
-            }
-            
-            if (!bail) {
-                let newPipe = new Pipe(self, other);
+    const pipes: Pipe[] = [];
+    const startHub = randomSelection(hubs);
+    const disovered = new Set<Hub>();
+    function dfs(h: Hub) {
+        disovered.add(h);
+        for (let w of hubs) {
+            if (w !== h && !disovered.has(w)) {
+                const newPipe = new Pipe(h, w);
+                h.pipes.push(newPipe);
+                w.pipes.push(newPipe);
                 pipes.push(newPipe);
-                self.pipes.push(newPipe);
-                other.pipes.push(newPipe);
+                dfs(w);
             }
         }
-    }   
+    }
+    dfs(startHub);
+    
+    const bonusPipes = hubs.length;
+    for (let i = 0; i < bonusPipes; i++) {
+        let a: Hub, b: Hub;
+        do {
+            a = randomSelection(hubs);
+            b = randomSelection(hubs);
+        } while (a === b)
+        const newPipe = new Pipe(a,b);
+        a.pipes.push(newPipe);
+        b.pipes.push(newPipe);
+        pipes.push(newPipe);
+    }
     
     return [hubs, pipes];
 }
