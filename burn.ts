@@ -172,7 +172,7 @@ function render(ctx: CanvasRenderingContext2D, pipes: Pipe[], hubs: Hub[], heigh
     ctx.fillRect(0, 0, width, height);
     
     for (let p of pipes) {
-        ctx.strokeStyle = "grey";
+        ctx.strokeStyle = "dimgrey";
             
         let [x1, y1] = p.ends[0].position;
         let [x2, y2] = p.ends[1].position;
@@ -181,7 +181,7 @@ function render(ctx: CanvasRenderingContext2D, pipes: Pipe[], hubs: Hub[], heigh
         ctx.lineTo(x2*width, y2*height);
         ctx.stroke();
         
-        const packetSize = 5;
+        const packetSize = 3;
         for (let pkey in p.inflight) {
             const pinfo = p.inflight[pkey];
             ctx.fillStyle = intToColor(pinfo.packet.destId);
@@ -202,7 +202,7 @@ function render(ctx: CanvasRenderingContext2D, pipes: Pipe[], hubs: Hub[], heigh
         }
     }
     
-    const hubsize = 5;
+    const hubsize = 7;
     for (let h of hubs) {
         ctx.fillStyle = intToColor(h.id);
         let [x, y] = h.position;
@@ -222,7 +222,7 @@ function main() {
     
     const [hubs, pipes] = generateScene();
     
-    for (let i = 0; i < 200; i++) {
+    for (let i = 0; i < 500; i++) {
         const targetId = randomSelection(hubs).id;
         randomSelection(hubs).receive(new Packet(targetId));
     }
