@@ -1,15 +1,15 @@
-
-let getId = function() {
+let getId = (function() {
     let id = 0;
-    return function getId() {
-        return id++;
-    }
-}();
+    return () => id += 1;
+}());
 
 function randomSelection<T>(target: T[]): T {
     const index = Math.floor(Math.random() * target.length);
     return target[index];
 }
+
+
+// Data Types
 
 class Packet {
     readonly id: number;
@@ -37,9 +37,9 @@ class Pipe {
     
     receive(p: Packet, senderId: number): void {
         if (senderId == this.ends[0].id)
-            this.inflight.set(p.id, new FlightState(p, FlightDirection.AB));
+            this.inflight.set(p.id, new FlightState(p, true));
         else if (senderId == this.ends[1].id)
-            this.inflight.set(p.id, new FlightState(p, FlightDirection.BA));
+            this.inflight.set(p.id, new FlightState(p, true));
         else
             throw "Bad id";
     }
@@ -57,7 +57,7 @@ class Pipe {
         for (let status of delivered) {
             this.inflight.delete(status.packet.id);
             
-            if (status.direction === FlightDirection.AB)
+            if (status.flyingAtoB)
                 this.ends[1].receive(status.packet);
             else
                 this.ends[0].receive(status.packet);
@@ -65,19 +65,14 @@ class Pipe {
     }
 }
 
-enum FlightDirection {
-    AB,
-    BA
-}
-
 class FlightState {
     readonly packet: Packet;
-    readonly direction: FlightDirection;
+    readonly flyingAtoB: boolean;
     progress: number;
     
-    constructor(p: Packet, direction: FlightDirection) {
+    constructor(p: Packet, direction: boolean) {
         this.packet = p;
-        this.direction = direction;
+        this.flyingAtoB = direction;
         this.progress = 0;
     }
 }
@@ -106,6 +101,8 @@ class Hub {
         targetPipe.receive(p, this.id);
     }
 }
+
+// Program
 
 function generateScene(): [Hub[], Pipe[]] {
     const hubs: Hub[] = [];
@@ -179,7 +176,7 @@ function render(ctx: CanvasRenderingContext2D, pipes: Pipe[], hubs: Hub[], heigh
         const packetSize = 3;
         for (let flightStatus of p.inflight.values()) {
             ctx.fillStyle = intToColor(flightStatus.packet.destId);
-            if (flightStatus.direction == FlightDirection.AB) {
+            if (flightStatus.flyingAtoB) {
                 let dx = (x2 - x1) * flightStatus.progress;
                 let dy = (y2 - y1) * flightStatus.progress;
                 ctx.fillRect((x1+dx)*width - packetSize/2,
