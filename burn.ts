@@ -7,8 +7,8 @@ let getId = function() {
 }();
 
 class Packet {
-    id: number;
-    destId: number;
+    readonly id: number;
+    readonly destId: number;
     
     constructor(destId: number) {
         this.id = getId();
@@ -17,9 +17,9 @@ class Packet {
 }
 
 class Pipe {
-    ends: [Hub, Hub];
-    inflight: IMap<FlightState>;
-    private speed: number;
+    readonly ends: [Hub, Hub];
+    readonly inflight: IMap<FlightState>;
+    private readonly speed: number;
     
     constructor(a: Hub, b: Hub) {
         this.ends = [a, b];
@@ -67,9 +67,9 @@ enum FlightDirection {
 }
 
 class FlightState {
-    packet: Packet;
+    readonly packet: Packet;
+    readonly direction: FlightDirection;
     progress: number;
-    direction: FlightDirection;
     
     constructor(p: Packet, direction: FlightDirection) {
         this.packet = p;
@@ -83,9 +83,9 @@ interface IMap<T> {
 }
 
 class Hub {
-    position: [number, number];
-    id: number;
-    pipes: Pipe[];
+    readonly position: [number, number];
+    readonly id: number;
+    readonly pipes: Pipe[];
     
     constructor(x: number, y: number) {
         this.position = [x, y]
@@ -95,7 +95,7 @@ class Hub {
     
     receive(p: Packet): void {
         if (p.destId === this.id) {
-            //console.log(`P${p.id} delivered to ${this.id}!`);
+            console.log(`P${p.id} delivered to ${this.id}!`);
             return;
         }
             
@@ -105,7 +105,6 @@ class Hub {
         let rawRandom = Math.random();
         let randIndex = Math.floor(rawRandom*this.pipes.length);
         let targetPipe = this.pipes[randIndex];
-        // console.log(`P${p.id} routed from H${this.id} to pipe ${targetPipe.ends[0].id}${targetPipe.ends[1].id}`);
         targetPipe.receive(p, this.id);
     }
 }
@@ -187,18 +186,18 @@ function render(ctx: CanvasRenderingContext2D, pipes: Pipe[], hubs: Hub[], heigh
 }
 
 function main() {
-    let canvas = document.getElementById('canvas') as HTMLCanvasElement;
-    let ctx = canvas.getContext('2d');
+    const canvas = document.getElementById('canvas') as HTMLCanvasElement;
+    const ctx = canvas.getContext('2d');
     
-    let height = canvas.height;
-    let width = canvas.width;
+    const height = canvas.height;
+    const width = canvas.width;
     
     ctx.fillStyle = "black";
     ctx.fillRect(0, 0, width, height);
     
-    let [hubs, pipes] = generateScene();
+    const [hubs, pipes] = generateScene();
     
-    let targetId = hubs[0].id;
+    const targetId = hubs[0].id;
     for (let i = 0; i < 200; i++) {
         hubs[2].receive(new Packet(targetId));
     }
