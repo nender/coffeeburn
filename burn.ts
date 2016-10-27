@@ -99,15 +99,25 @@ class FlightState {
     }
 }
 
+class PipeReference {
+    readonly pipe: Pipe;
+    readonly hub: Hub;
+    
+    constructor(pipe: Pipe, hub: Hub) {
+        this.pipe = pipe;
+        this.hub = hub;
+    }
+}
+
 class Hub {
     readonly position: [number, number];
     readonly id: number;
-    readonly pipes: Pipe[];
+    readonly neighbors: PipeReference[];
     
     constructor(x: number, y: number) {
         this.position = [x, y]
         this.id = getId();
-        this.pipes = [];
+        this.neighbors = [];
     }
     
     receive(p: Packet): void {
@@ -116,19 +126,28 @@ class Hub {
             return;
        }
             
-        if (this.pipes.length === 0)
+        if (this.neighbors.length === 0)
             throw "No pipes";
             
-        let targetPipe = randomSelection(this.pipes);
-        log(`H${this.id} routing P${p.id} on ${targetPipe.name}`);
-        targetPipe.receive(p, this.id);
+        let targetPipe = randomSelection(this.neighbors);
+        log(`H${this.id} routing P${p.id} on ${targetPipe.pipe.name}`);
+        targetPipe.pipe.receive(p, this.id);
     }
 }
+
 
 // Program
 
 function generateScene(): [Hub[], Pipe[]] {
+    function linkHubs(a: Hub, b: Hub): void {
+        const pipe = new Pipe(a, b);
+        a.neighbors.push(new PipeReference(pipe, b));
+        b.neighbors.push(new PipeReference(pipe, a));
+        pipes.push(pipe);
+    }
+    
     const hubs: Hub[] = [];
+    
     for (let i = 0; i < 20; i++) {
         let x = Math.random();
         let y = Math.random();
@@ -142,10 +161,7 @@ function generateScene(): [Hub[], Pipe[]] {
         disovered.add(h);
         for (let w of hubs) {
             if (w !== h && !disovered.has(w)) {
-                const newPipe = new Pipe(h, w);
-                h.pipes.push(newPipe);
-                w.pipes.push(newPipe);
-                pipes.push(newPipe);
+                linkHubs(h, w);
                 dfs(w);
             }
         }
@@ -159,10 +175,7 @@ function generateScene(): [Hub[], Pipe[]] {
             a = randomSelection(hubs);
             b = randomSelection(hubs);
         } while (a === b)
-        const newPipe = new Pipe(a,b);
-        a.pipes.push(newPipe);
-        b.pipes.push(newPipe);
-        pipes.push(newPipe);
+        linkHubs(a, b);
     }
     
     return [hubs, pipes];
@@ -222,6 +235,51 @@ function render(ctx: CanvasRenderingContext2D, pipes: Pipe[], hubs: Hub[], heigh
         let [x, y] = h.position;
         ctx.fillRect(x*width - (hubsize/2), y*height - (hubsize/2), hubsize, hubsize);
     }
+}
+
+function dijkstra(graph: Hub[], source: Hub): [Map<Hub, number>, Map<Hub, Hub>] {
+    function minDistFromQ(): Hub {
+        let minDist = Infinity;
+        let hub: Hub = null;
+        
+        for (let v of Q.keys()) {
+            let weight = dist.get(v);
+            if (weight < minDist) {
+                minDist = weight;
+                hub = v;
+            }
+        }
+        
+        return hub;
+    }
+    
+    const Q = new Set<Hub>();
+    const dist = new Map<Hub, number>();
+    const prev = new Map<Hub, Hub>();
+    
+    for (let v of graph) {
+        dist.set(v, Infinity);
+        prev.set(v, null);
+        Q.add(v);
+    }
+    
+    dist.set(source, 0);
+    
+    while (Q.size > 0) {
+        const u = minDistFromQ();
+        Q.delete(u);
+        
+        for (let pr of u.neighbors) {
+            const v = pr.hub;
+            const alt = dist.get(v) + pr.pipe.weight;
+            if (alt < dist.get(v)) {
+                dist.set(v, alt);
+                prev.set(v, u);
+            }
+        }
+    }
+    
+    return [dist, prev];
 }
 
 function main() {
