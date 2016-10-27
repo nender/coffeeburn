@@ -33,6 +33,7 @@ class Pipe {
     readonly ends: [Hub, Hub];
     readonly inflight: Map<number, FlightState>;
     readonly name: string;
+    readonly weight: number;
     private readonly speed: number;
     
     constructor(a: Hub, b: Hub) {
@@ -45,8 +46,9 @@ class Pipe {
         this.inflight = new Map<number, FlightState>();
         let dx = Math.abs(a.position[0] - b.position[0]);
         let dy = Math.abs(a.position[1] - b.position[1]);
-        let distance = Math.sqrt(dx*dx+dy*dy);
-        this.speed = 1/distance;
+        this.weight = Math.sqrt(dx*dx+dy*dy);
+        
+        this.speed = 1/this.weight;
     }
     
     receive(p: Packet, senderId: number): void {
