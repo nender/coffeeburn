@@ -8,177 +8,12 @@ function log(str: string): void {
 
 let getId = (function() {
     let id = 0;
-    return () => id += 1;
+    return function getId() { return id += 1 };
 }());
 
 function randomSelection<T>(target: T[]): T {
     const index = Math.floor(Math.random() * target.length);
     return target[index];
-}
-
-
-// Data Types
-
-class Packet {
-    readonly id: number;
-    readonly destId: number;
-    
-    constructor(destId: number) {
-        this.id = getId();
-        this.destId = destId;
-    }
-}
-
-class Pipe {
-    readonly ends: [Hub, Hub];
-    readonly inflight: Map<number, FlightState>;
-    readonly name: string;
-    readonly weight: number;
-    private readonly speed: number;
-    
-    constructor(a: Hub, b: Hub) {
-        const canonicalEnds: [Hub, Hub] = [a , b];
-        canonicalEnds.sort();
-        this.name = canonicalEnds[0].id + '|' + canonicalEnds[1].id;
-        
-        this.ends = [a, b];
-        
-        this.inflight = new Map<number, FlightState>();
-        let dx = Math.abs(a.position[0] - b.position[0]);
-        let dy = Math.abs(a.position[1] - b.position[1]);
-        this.weight = Math.sqrt(dx*dx+dy*dy);
-        
-        this.speed = 1/this.weight;
-    }
-    
-    receive(p: Packet, senderId: number): void {
-        log(`P${p.id} received by ${this.name}`);
-        if (senderId == this.ends[0].id)
-            this.inflight.set(p.id, new FlightState(p, true));
-        else if (senderId == this.ends[1].id)
-            this.inflight.set(p.id, new FlightState(p, false));
-        else
-            throw "Bad id";
-    }
-    
-    step(dt: number): void {
-        let delivered: FlightState[] = [];
-        
-        for (let flightStatus of this.inflight.values()){
-            flightStatus.progress += this.speed*dt;
-            
-            if (flightStatus.progress >= 1)
-                delivered.push(flightStatus);
-        }
-        
-        for (let status of delivered) {
-            this.inflight.delete(status.packet.id);
-            
-            let end = (() => {
-                if (status.flyingAtoB)
-                    return this.ends[1];
-                else
-                    return this.ends[0];
-            })();
-            
-            log(`${this.name} handed off P${status.packet.id} to H${end.id}`)
-            end.receive(status.packet);
-        }
-    }
-}
-
-class FlightState {
-    readonly packet: Packet;
-    readonly flyingAtoB: boolean;
-    progress: number;
-    
-    constructor(p: Packet, direction: boolean) {
-        this.packet = p;
-        this.flyingAtoB = direction;
-        this.progress = 0;
-    }
-}
-
-class PipeReference {
-    readonly pipe: Pipe;
-    readonly hub: Hub;
-    
-    constructor(pipe: Pipe, hub: Hub) {
-        this.pipe = pipe;
-        this.hub = hub;
-    }
-}
-
-class Hub {
-    readonly position: [number, number];
-    readonly id: number;
-    readonly neighbors: PipeReference[];
-    
-    constructor(x: number, y: number) {
-        this.position = [x, y]
-        this.id = getId();
-        this.neighbors = [];
-    }
-    
-    receive(p: Packet): void {
-        if (p.destId === this.id) {
-            log(`P${p.id} delivered to ${this.id}!`);
-            return;
-       }
-            
-        if (this.neighbors.length === 0)
-            throw "No pipes";
-            
-        let targetPipe = randomSelection(this.neighbors);
-        log(`H${this.id} routing P${p.id} on ${targetPipe.pipe.name}`);
-        targetPipe.pipe.receive(p, this.id);
-    }
-}
-
-
-// Program
-
-function generateScene(): [Hub[], Pipe[]] {
-    function linkHubs(a: Hub, b: Hub): void {
-        const pipe = new Pipe(a, b);
-        a.neighbors.push(new PipeReference(pipe, b));
-        b.neighbors.push(new PipeReference(pipe, a));
-        pipes.push(pipe);
-    }
-    
-    const hubs: Hub[] = [];
-    
-    for (let i = 0; i < 20; i++) {
-        let x = Math.random();
-        let y = Math.random();
-        hubs.push(new Hub(x,y));
-    }
-    
-    const pipes: Pipe[] = [];
-    const startHub = randomSelection(hubs);
-    const disovered = new Set<Hub>();
-    function dfs(h: Hub) {
-        disovered.add(h);
-        for (let w of hubs) {
-            if (w !== h && !disovered.has(w)) {
-                linkHubs(h, w);
-                dfs(w);
-            }
-        }
-    }
-    dfs(startHub);
-    
-    const bonusPipes = hubs.length;
-    for (let i = 0; i < bonusPipes; i++) {
-        let a: Hub, b: Hub;
-        do {
-            a = randomSelection(hubs);
-            b = randomSelection(hubs);
-        } while (a === b)
-        linkHubs(a, b);
-    }
-    
-    return [hubs, pipes];
 }
 
 let intToColor = (function() {
@@ -195,35 +30,165 @@ let intToColor = (function() {
     }
 })();
 
-function render(ctx: CanvasRenderingContext2D, pipes: Pipe[], hubs: Hub[], height: number, width: number): void {
+
+// Data Types
+
+class Packet {
+    readonly id: number;
+    readonly destId: number;
+    
+    constructor(destId: number) {
+        this.id = getId();
+        this.destId = destId;
+    }
+}
+
+class Pipe {
+    readonly target: Hub;
+    readonly inflight: Map<Packet, number>;
+    readonly weight: number;
+    private readonly speed: number;
+    
+    constructor(a: Hub, b: Hub) {
+        this.target = b;
+        
+        this.inflight = new Map<Packet, number>();
+        let dx = Math.abs(a.position[0] - b.position[0]);
+        let dy = Math.abs(a.position[1] - b.position[1]);
+        this.weight = Math.sqrt(dx*dx+dy*dy);
+        
+        this.speed = 1/this.weight;
+    }
+    
+    receive(p: Packet): void {
+        log(`P${p.id} received by ${this.toString()}`);
+            this.inflight.set(p, 0);
+    }
+    
+    step(dt: number): void {
+        const delivered : Packet[] = [];
+        
+        // loop through all the inflight packets, updating their status and making note
+        // of those which are complete;
+        for (let packet of this.inflight.keys()) {
+            const oldProg = this.inflight.get(packet);
+            const newProg = oldProg + this.speed*dt;
+            
+            if (newProg <= 1)
+                this.inflight.set(packet, newProg);
+            else
+                delivered.push(packet);
+        }
+        
+        for (let packet of delivered) {
+            log(`${packet.toString()} handed off to ${this.target.toString()}`)
+            this.inflight.delete(packet);
+            this.target.receive(packet);
+        }
+    }
+}
+
+class Hub {
+    readonly position: [number, number];
+    readonly id: number;
+    readonly pipes: Pipe[];
+    
+    constructor(x: number, y: number) {
+        this.position = [x, y]
+        this.pipes = [];
+        this.id = getId();
+    }
+    
+    addNeighbor(other: Hub): void {
+        const p = new Pipe(this, other);
+        this.pipes.push(p);
+        
+        const op = new Pipe(other, this);
+        other.pipes.push(op);
+    }
+    
+    receive(p: Packet): void {
+        if (p.destId === this.id) {
+            log(`P${p.id} delivered to ${this.id}!`);
+            return;
+       }
+            
+        if (this.pipes.length === 0)
+            throw "No pipes";
+            
+        let targetPipe = randomSelection(this.pipes);
+        log(`${this.toString()} routing ${p.toString()} on ${targetPipe.toString()}`);
+        targetPipe.receive(p);
+    }
+    
+    step(dt: number): void {
+        for (let p of this.pipes)
+            p.step(dt);
+    }
+}
+
+
+// Program
+
+function generateScene(): Hub[] {
+    const hubs: Hub[] = [];
+    
+    for (let i = 0; i < 20; i++) {
+        let x = Math.random();
+        let y = Math.random();
+        hubs.push(new Hub(x,y));
+    }
+    
+    const pipes: Pipe[] = [];
+    const startHub = randomSelection(hubs);
+    const disovered = new Set<Hub>();
+    function dfs(h: Hub) {
+        disovered.add(h);
+        for (let w of hubs) {
+            if (w !== h && !disovered.has(w)) {
+                h.addNeighbor(w);
+                dfs(w);
+            }
+        }
+    }
+    dfs(startHub);
+    
+    const bonusPipes = hubs.length;
+    for (let i = 0; i < bonusPipes; i++) {
+        let a: Hub, b: Hub;
+        do {
+            a = randomSelection(hubs);
+            b = randomSelection(hubs);
+        } while (a === b)
+        a.addNeighbor(b);
+    }
+    
+    return hubs;
+}
+
+function render(ctx: CanvasRenderingContext2D, hubs: Hub[], height: number, width: number): void {
     ctx.fillStyle = "black";
     ctx.fillRect(0, 0, width, height);
     
-    for (let p of pipes) {
-        ctx.strokeStyle = "dimgrey";
+    for (let h of hubs) {
+        for (let p of h.pipes) {
+            ctx.strokeStyle = "dimgrey";
+                
+            let [x1, y1] = h.position;
+            let [x2, y2] = p.target.position;
+            ctx.beginPath();
+            ctx.moveTo(x1*width, y1*height);
+            ctx.lineTo(x2*width, y2*height);
+            ctx.stroke();
             
-        let [x1, y1] = p.ends[0].position;
-        let [x2, y2] = p.ends[1].position;
-        ctx.beginPath();
-        ctx.moveTo(x1*width, y1*height);
-        ctx.lineTo(x2*width, y2*height);
-        ctx.stroke();
-        
-        const packetSize = 4;
-        for (let flightStatus of p.inflight.values()) {
-            ctx.fillStyle = intToColor(flightStatus.packet.destId);
-            if (flightStatus.flyingAtoB) {
-                let dx = (x2 - x1) * flightStatus.progress;
-                let dy = (y2 - y1) * flightStatus.progress;
+            const packetSize = 4;
+            for (let packet of p.inflight.keys()) {
+                ctx.fillStyle = intToColor(packet.destId);
+                const progress = p.inflight.get(packet);
+                let dx = (x2 - x1) * progress;
+                let dy = (y2 - y1) * progress;
                 ctx.fillRect((x1+dx)*width - packetSize/2,
                     (y1+dy)*height - packetSize/2,
-                    packetSize, packetSize);
-            } else {
-                let dx = (x1 - x2) * flightStatus.progress;
-                let dy = (y1 - y2) * flightStatus.progress;
-                
-                ctx.fillRect((x2+dx)*width - packetSize/2,
-                    (y2+dy)*height - packetSize/2,
                     packetSize, packetSize);
             }
         }
@@ -237,6 +202,7 @@ function render(ctx: CanvasRenderingContext2D, pipes: Pipe[], hubs: Hub[], heigh
     }
 }
 
+/* 
 function dijkstra(graph: Hub[], source: Hub): [Map<Hub, number>, Map<Hub, Hub>] {
     function minDistFromQ(): Hub {
         let minDist = Infinity;
@@ -281,6 +247,7 @@ function dijkstra(graph: Hub[], source: Hub): [Map<Hub, number>, Map<Hub, Hub>] 
     
     return [dist, prev];
 }
+*/
 
 function main() {
     const canvas = document.getElementById('canvas') as HTMLCanvasElement;
@@ -292,7 +259,7 @@ function main() {
     ctx.fillStyle = "black";
     ctx.fillRect(0, 0, width, height);
     
-    const [hubs, pipes] = generateScene();
+    const hubs = generateScene();
     
     for (let i = 0; i < 100; i++) {
         const targetId = randomSelection(hubs).id;
@@ -300,8 +267,8 @@ function main() {
     }
     
     let renderStep = function() {
-        render(ctx, pipes, hubs, height, width);
-        for (let p of pipes)
+        render(ctx, hubs, height, width);
+        for (let p of hubs)
             p.step(0.005);
         window.requestAnimationFrame(renderStep);
     }
