@@ -221,27 +221,28 @@ function dijkstra(graph: Hub[], source: Hub): Map<Hub, Hub> {
         return hub;
     }
     
+    // initialization steps
     const Q = new Set<Hub>();
     const dist = new Map<Hub, number>();
     const prev = new Map<Hub, Hub>();
-    
     for (let v of graph) {
         dist.set(v, Infinity);
         prev.set(v, null);
         Q.add(v);
     }
-    
     dist.set(source, 0);
     
     while (Q.size > 0) {
+        // destructively remove node with minimum distance from Q
         const u = minDistFromQ();
         Q.delete(u);
         
         for (let pipe of u.pipes) {
             const v = pipe.target;
-            const alt = dist.get(v) + pipe.weight;
-            if (alt < dist.get(v)) {
-                dist.set(v, alt);
+            const cost = dist.get(u) + pipe.weight;
+            const prevCost = dist.get(v);
+            if (cost < prevCost) {
+                dist.set(v, cost);
                 prev.set(v, u);
             }
         }
