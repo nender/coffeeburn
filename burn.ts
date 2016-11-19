@@ -202,12 +202,14 @@ function render(ctx: CanvasRenderingContext2D, hubs: Hub[], height: number, widt
     }
 }
 
-/* 
-function dijkstra(graph: Hub[], source: Hub): [Map<Hub, number>, Map<Hub, Hub>] {
+function dijkstra(graph: Hub[], source: Hub): Map<Hub, Hub> {
     function minDistFromQ(): Hub {
         let minDist = Infinity;
-        let hub: Hub = null;
+        let hub: Hub = Q.values().next().value;
         
+        if (Q.size === 0)
+            throw "shit";
+            
         for (let v of Q.keys()) {
             let weight = dist.get(v);
             if (weight < minDist) {
@@ -235,9 +237,9 @@ function dijkstra(graph: Hub[], source: Hub): [Map<Hub, number>, Map<Hub, Hub>] 
         const u = minDistFromQ();
         Q.delete(u);
         
-        for (let pr of u.neighbors) {
-            const v = pr.hub;
-            const alt = dist.get(v) + pr.pipe.weight;
+        for (let pipe of u.pipes) {
+            const v = pipe.target;
+            const alt = dist.get(v) + pipe.weight;
             if (alt < dist.get(v)) {
                 dist.set(v, alt);
                 prev.set(v, u);
@@ -245,9 +247,8 @@ function dijkstra(graph: Hub[], source: Hub): [Map<Hub, number>, Map<Hub, Hub>] 
         }
     }
     
-    return [dist, prev];
+    return prev;
 }
-*/
 
 function main() {
     const canvas = document.getElementById('canvas') as HTMLCanvasElement;
@@ -260,6 +261,9 @@ function main() {
     ctx.fillRect(0, 0, width, height);
     
     const hubs = generateScene();
+    render(ctx, hubs, height, width);
+    
+    const nav = dijkstra(hubs, hubs[0])
     
     for (let i = 0; i < 100; i++) {
         const targetId = randomSelection(hubs).id;
