@@ -131,9 +131,16 @@ class Hub {
 // Program
 
 function generateScene(): Hub[] {
+    function alreadyLinked(a: Hub, b: Hub): boolean {
+        for (let x of a.pipes) {
+            if (x.target === b)
+                return true;
+        }
+        return false;
+    }
     const hubs: Hub[] = [];
     
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < 5; i++) {
         let x = Math.random();
         let y = Math.random();
         hubs.push(new Hub(x,y));
@@ -160,7 +167,8 @@ function generateScene(): Hub[] {
             a = randomSelection(hubs);
             b = randomSelection(hubs);
         } while (a === b)
-        a.addNeighbor(b);
+        if (!alreadyLinked(a,b))
+            a.addNeighbor(b);
     }
     
     return hubs;
