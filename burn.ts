@@ -30,16 +30,18 @@ let intToColor = (function() {
     }
 })();
 
+// global navitaion data object. (I know, I know)
+const nav: Map<Hub, Map<Hub, Hub>> = new Map();
 
 // Data Types
 
 class Packet {
     readonly id: number;
-    readonly destId: number;
+    readonly target: Hub;
     
-    constructor(destId: number) {
+    constructor(target: Hub) {
         this.id = getId();
-        this.destId = destId;
+        this.target = target;
     }
 }
 
@@ -95,8 +97,8 @@ class Hub {
     
     constructor(x: number, y: number) {
         this.position = [x, y]
-        this.pipes = [];
         this.id = getId();
+        this.pipes = [];
     }
     
     addNeighbor(other: Hub): void {
@@ -108,7 +110,7 @@ class Hub {
     }
     
     receive(p: Packet): void {
-        if (p.destId === this.id) {
+        if (p.target === this) {
             log(`P${p.id} delivered to ${this.id}!`);
             return;
        }
@@ -116,7 +118,13 @@ class Hub {
         if (this.pipes.length === 0)
             throw "No pipes";
             
-        let targetPipe = randomSelection(this.pipes);
+        const nextHop = nav.get(p.target).get(this);
+        let targetPipe: Pipe = null;
+        for (let p of this.pipes) {
+            if (p.target === nextHop)
+            targetPipe = p;
+        }
+        
         log(`${this.toString()} routing ${p.toString()} on ${targetPipe.toString()}`);
         targetPipe.receive(p);
     }
@@ -140,7 +148,7 @@ function generateScene(): Hub[] {
     }
     const hubs: Hub[] = [];
     
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 20; i++) {
         let x = Math.random();
         let y = Math.random();
         hubs.push(new Hub(x,y));
@@ -191,7 +199,7 @@ function render(ctx: CanvasRenderingContext2D, hubs: Hub[], height: number, widt
             
             const packetSize = 4;
             for (let packet of p.inflight.keys()) {
-                ctx.fillStyle = intToColor(packet.destId);
+                ctx.fillStyle = intToColor(packet.target.id);
                 const progress = p.inflight.get(packet);
                 let dx = (x2 - x1) * progress;
                 let dy = (y2 - y1) * progress;
@@ -211,12 +219,9 @@ function render(ctx: CanvasRenderingContext2D, hubs: Hub[], height: number, widt
 }
 
 function dijkstra(graph: Hub[], source: Hub): Map<Hub, Hub> {
-    function minDistFromQ(): Hub {
+    function popMinDistFromQ(): Hub {
         let minDist = Infinity;
         let hub: Hub = Q.values().next().value;
-        
-        if (Q.size === 0)
-            throw "shit";
             
         for (let v of Q.keys()) {
             let weight = dist.get(v);
@@ -226,12 +231,15 @@ function dijkstra(graph: Hub[], source: Hub): Map<Hub, Hub> {
             }
         }
         
+        Q.delete(hub);
         return hub;
     }
     
-    // initialization steps
+    // set of all verticies not yet considered by the algorithm
     const Q = new Set<Hub>();
+    // map of hub -> shortest path from source
     const dist = new Map<Hub, number>();
+    // map of hub -> next hop on path to source
     const prev = new Map<Hub, Hub>();
     for (let v of graph) {
         dist.set(v, Infinity);
@@ -242,8 +250,7 @@ function dijkstra(graph: Hub[], source: Hub): Map<Hub, Hub> {
     
     while (Q.size > 0) {
         // destructively remove node with minimum distance from Q
-        const u = minDistFromQ();
-        Q.delete(u);
+        const u = popMinDistFromQ();
         
         for (let pipe of u.pipes) {
             const v = pipe.target;
@@ -272,11 +279,14 @@ function main() {
     const hubs = generateScene();
     render(ctx, hubs, height, width);
     
-    const nav = dijkstra(hubs, hubs[0])
+    for (let h of hubs) {
+        const subnav = dijkstra(hubs, h);
+        nav.set(h, subnav);
+    }
     
     for (let i = 0; i < 100; i++) {
-        const targetId = randomSelection(hubs).id;
-        randomSelection(hubs).receive(new Packet(targetId));
+        const target = randomSelection(hubs);
+        randomSelection(hubs).receive(new Packet(target));
     }
     
     let renderStep = function() {
