@@ -277,9 +277,17 @@ function dijkstra(graph: Hub[], source: Hub): Map<Hub, Hub> {
 function main() {
     const canvas = document.getElementById('canvas') as HTMLCanvasElement;
     const ctx = canvas.getContext('2d');
+    let height, width;
     
-    const height = canvas.height;
-    const width = canvas.width;
+    function resizeHandler() {
+        height = window.innerHeight;
+        width = window.innerWidth;
+        canvas.height = height;
+        canvas.width = width;
+    }
+    resizeHandler();
+    
+    window.onresize = resizeHandler;
     
     ctx.fillStyle = "black";
     ctx.fillRect(0, 0, width, height);
