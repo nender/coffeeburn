@@ -280,8 +280,8 @@ function main() {
     let height, width;
     
     function resizeHandler() {
-        height = window.innerHeight;
-        width = window.innerWidth;
+        height = Math.min(window.innerHeight, window.innerWidth);
+        width = height;
         canvas.height = height;
         canvas.width = width;
     }
