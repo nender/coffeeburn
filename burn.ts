@@ -16,19 +16,6 @@ function randomSelection<T>(target: T[]): T {
     return target[index];
 }
 
-let intToColor = (function() {
-    const colorTable = new Map<number, string>();
-    const r100 = () => Math.floor(Math.random() * 100);
-    return function intToColor(i: number): string {
-        if (colorTable.has(i))
-            return colorTable.get(i);
-        else {
-            const colorString = `rgb(${r100()}%,${r100()}%,${r100()}%)`;
-            colorTable.set(i, colorString);
-            return colorString;
-        }
-    }
-})();
 
 // global navitaion data object. (I know, I know)
 const nav: Map<Hub, Map<Hub, Hub>> = new Map();
@@ -182,6 +169,27 @@ function generateScene(): Hub[] {
     return hubs;
 }
 
+function randInt(min: number, max: number): number {
+    const low = Math.ceil(min);
+    const high = Math.floor(max);
+    return Math.floor(Math.random() * (max - min)) + min;
+}
+
+let intToColor = (function() {
+    const colorTable = new Map<number, string>();
+    return function intToColor(i: number): string {
+        if (colorTable.has(i))
+            return colorTable.get(i);
+        else {
+            // turns out that random rgb values don't *look* random!
+            // so instead randomize hue value of hsl color
+            const colorString = `hsl(${randInt(0,360)},100%,50%)`;
+            colorTable.set(i, colorString);
+            return colorString;
+        }
+    }
+})();
+
 function render(ctx: CanvasRenderingContext2D, hubs: Hub[], height: number, width: number): void {
     ctx.fillStyle = "black";
     ctx.fillRect(0, 0, width, height);
@@ -293,6 +301,7 @@ function main() {
         render(ctx, hubs, height, width);
         for (let p of hubs)
             p.step(0.005);
+        randomSelection(hubs).receive(new Packet(randomSelection(hubs)));
         window.requestAnimationFrame(renderStep);
     }
     
