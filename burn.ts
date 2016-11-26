@@ -105,14 +105,17 @@ class Pipe {
 
 class Link {
     readonly target: Hub;
+    readonly source: Hub;
     private pipe: Pipe;
     
     constructor(from: Hub, pipe: Pipe) {
         this.pipe = pipe;
         if (from === pipe.ends[0]) {
             this.target = pipe.ends[1];
+            this.source = pipe.ends[0];
         } else if (from === pipe.ends[1]) {
             this.target = pipe.ends[0];
+            this.source = pipe.ends[1];
         } else {
             throw "From is not one of pipe ends";
         }
@@ -123,7 +126,7 @@ class Link {
     }
     
     receive(p: Packet): void {
-        this.target.receive(p);
+        this.pipe.receive(p, this.source);
     }
 }
 
@@ -150,8 +153,10 @@ class Hub {
         const nextHop = nav.get(p.target).get(this);
         let targetLink: Link = null;
         for (let p of this.links) {
-            if (p.target === nextHop)
-            targetLink = p;
+            if (p.target === nextHop) {
+                targetLink = p;
+                break;
+            }
         }
         
         log(`${this.toString()} routing ${p.toString()} on ${targetLink.toString()}`);
