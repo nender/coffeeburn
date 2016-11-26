@@ -16,7 +16,6 @@ function randomSelection<T>(target: T[]): T {
     return target[index];
 }
 
-
 // global navitaion data object. (I know, I know)
 const nav: Map<Hub, Map<Hub, Hub>> = new Map();
 
@@ -89,6 +88,17 @@ class Hub {
     }
     
     addNeighbor(other: Hub): void {
+        function alreadyLinked(a: Hub, b: Hub): boolean {
+            for (let x of a.pipes) {
+                if (x.target === b)
+                    return true;
+            }
+            return false;
+        }
+        
+        if (alreadyLinked(this, other))
+            return;
+        
         const p = new Pipe(this, other);
         this.pipes.push(p);
         
@@ -125,45 +135,19 @@ class Hub {
 
 // Program
 
-function generateScene(): Hub[] {
-    function alreadyLinked(a: Hub, b: Hub): boolean {
-        for (let x of a.pipes) {
-            if (x.target === b)
-                return true;
-        }
-        return false;
-    }
+function generateScene(numHubs: number): Hub[] {
     const hubs: Hub[] = [];
     
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < numHubs; i++) {
         let x = Math.random();
         let y = Math.random();
         hubs.push(new Hub(x,y));
     }
     
-    const pipes: Pipe[] = [];
-    const startHub = randomSelection(hubs);
-    const disovered = new Set<Hub>();
-    function dfs(h: Hub) {
-        disovered.add(h);
-        for (let w of hubs) {
-            if (w !== h && !disovered.has(w)) {
-                h.addNeighbor(w);
-                dfs(w);
-            }
+    for (let x of hubs) {
+        for (let y of hubs) {
+            x.addNeighbor(y);
         }
-    }
-    dfs(startHub);
-    
-    const bonusPipes = hubs.length;
-    for (let i = 0; i < bonusPipes; i++) {
-        let a: Hub, b: Hub;
-        do {
-            a = randomSelection(hubs);
-            b = randomSelection(hubs);
-        } while (a === b)
-        if (!alreadyLinked(a,b))
-            a.addNeighbor(b);
     }
     
     return hubs;
@@ -200,10 +184,6 @@ function render(ctx: CanvasRenderingContext2D, hubs: Hub[], height: number, widt
                 
             let [x1, y1] = h.position;
             let [x2, y2] = p.target.position;
-            ctx.beginPath();
-            ctx.moveTo(x1*width, y1*height);
-            ctx.lineTo(x2*width, y2*height);
-            ctx.stroke();
             
             const packetSize = 4;
             for (let packet of p.inflight.keys()) {
@@ -292,7 +272,7 @@ function main() {
     ctx.fillStyle = "black";
     ctx.fillRect(0, 0, width, height);
     
-    const hubs = generateScene();
+    const hubs = generateScene(100);
     render(ctx, hubs, height, width);
     
     for (let h of hubs) {
@@ -309,6 +289,7 @@ function main() {
         render(ctx, hubs, height, width);
         for (let p of hubs)
             p.step(0.005);
+        randomSelection(hubs).receive(new Packet(randomSelection(hubs)));
         randomSelection(hubs).receive(new Packet(randomSelection(hubs)));
         window.requestAnimationFrame(renderStep);
     }
