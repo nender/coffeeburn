@@ -31,33 +31,56 @@ class Packet {
     }
 }
 
-type InflightMap = Map<Packet, [boolean, number]>;
-class Pipe {
-    readonly ends: [Hub, Hub];
-    readonly inflight: InflightMap;
-    private _weight: number;
-    private _speed: number;
+class BookKeeper {
+    private initialWeight: number;
+    private weightMultiplier: number;
     
-    constructor(a: Hub, b: Hub) {
-        this.ends = [a, b];
-        
-        this.inflight = new Map<Packet, [boolean, number]>();
-        let dx = Math.abs(a.position[0] - b.position[0]);
-        let dy = Math.abs(a.position[1] - b.position[1]);
-        this.weight = Math.sqrt(dx*dx+dy*dy);
+    constructor(initialWeight: number) {
+        this.initialWeight = initialWeight;
+        this.weightMultiplier = 1;
     }
     
-    get speed(): number {
+    increment() {
+        const newMultiplier = this.weightMultiplier - 0.1;
+        if (newMultiplier < 0.1)
+            this.weightMultiplier = 0.1;
+        else
+            this.weightMultiplier = newMultiplier;
+    }
+    
+    decay(dt: number) {
+    }
+    
+    get speed() {
         return 1/this.weight;
     }
     
     get weight() {
-        return this._weight;
+        return this.initialWeight * this.weightMultiplier;
+    }
+}
+
+type InflightMap = Map<Packet, [boolean, number]>;
+class Pipe {
+    readonly ends: [Hub, Hub];
+    readonly inflight: InflightMap;
+    private stats: BookKeeper;
+    
+    constructor(a: Hub, b: Hub) {
+        this.ends = [a, b];
+        this.inflight = new Map<Packet, [boolean, number]>();
+        
+        let dx = Math.abs(a.position[0] - b.position[0]);
+        let dy = Math.abs(a.position[1] - b.position[1]);
+        this.stats = new BookKeeper(Math.sqrt(dx*dx+dy*dy));
     }
     
-    set weight(value: number) {
-        this._weight = value;
-        this._speed = 1/value;
+    get speed(): number {
+        return this.stats.speed;
+    }
+    
+    get weight() {
+        return this.stats.weight;
     }
     
     receive(p: Packet, destination: Hub): void {
@@ -67,6 +90,7 @@ class Pipe {
         log(`P${p.id} received by ${this.toString()}`);
         const travellingAB = destination === this.ends[1];
         this.inflight.set(p, [travellingAB, 0]);
+        this.stats.increment();
     }
     
     step(dt: number): void {
@@ -76,7 +100,7 @@ class Pipe {
         // of those which are complete;
         for (let packet of this.inflight.keys()) {
             const flightState = this.inflight.get(packet);
-            const newProgress = flightState[1] + this.speed*dt;
+            const newProgress = flightState[1] + this.speed*dt*0.25;
             
             if (newProgress <= 1)
             {
@@ -100,6 +124,8 @@ class Pipe {
                 this.ends[0].receive(packet);
             }
         }
+        
+        this.stats.decay(dt);
     }
 }
 
@@ -348,7 +374,7 @@ function main() {
     let renderStep = function() {
         render(ctx, scene, height, width);
         for (let p of pipes)
-            p.step(0.005);
+            p.step(1/60);
         randomSelection(hubs).receive(new Packet(randomSelection(hubs)));
         randomSelection(hubs).receive(new Packet(randomSelection(hubs)));
         window.requestAnimationFrame(renderStep);
