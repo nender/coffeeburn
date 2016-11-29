@@ -126,7 +126,7 @@ class Link {
     }
     
     receive(p: Packet): void {
-        this.pipe.receive(p, this.source);
+        this.pipe.receive(p, this.target);
     }
 }
 
@@ -160,7 +160,7 @@ class Hub {
         }
         
         log(`${this.toString()} routing ${p.toString()} on ${targetLink.toString()}`);
-            targetLink.receive(p);
+        targetLink.receive(p);
     }
 }
 
