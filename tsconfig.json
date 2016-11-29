@@ -1,11 +1,13 @@
 {
     "compilerOptions": {
         "target": "es6",
-        "lib": ["es5", "es6", "dom"],
+        "lib": ["es5", "es6", "dom", "webworker"],
         "module": "commonjs",
-        "sourceMap": true
+        "sourceMap": true,
+        "outDir": "script"
     },
     "files": [
-        "burn.ts"
+        "burn.ts",
+        "router.ts"
     ]
 }
