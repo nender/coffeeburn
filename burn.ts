@@ -31,56 +31,32 @@ class Packet {
     }
 }
 
-class BookKeeper {
-    private initialWeight: number;
-    private weightMultiplier: number;
-    
-    constructor(initialWeight: number) {
-        this.initialWeight = initialWeight;
-        this.weightMultiplier = 1;
-    }
-    
-    increment() {
-        const newMultiplier = this.weightMultiplier - 0.1;
-        if (newMultiplier < 0.1)
-            this.weightMultiplier = 0.1;
-        else
-            this.weightMultiplier = newMultiplier;
-    }
-    
-    decay(dt: number) {
-    }
-    
-    get speed() {
-        return 1/this.weight;
-    }
-    
-    get weight() {
-        return this.initialWeight * this.weightMultiplier;
-    }
-}
-
+// boolean is whether the packet is travelling from hub a to b,
+// number is a float 0<=x<1 indicating the progress of the packet
 type InflightMap = Map<Packet, [boolean, number]>;
 class Pipe {
     readonly ends: [Hub, Hub];
     readonly inflight: InflightMap;
-    private stats: BookKeeper;
+    weight: number;
+    length: number;
     
     constructor(a: Hub, b: Hub) {
         this.ends = [a, b];
         this.inflight = new Map<Packet, [boolean, number]>();
+        this.weight = 1;
         
         let dx = Math.abs(a.position[0] - b.position[0]);
         let dy = Math.abs(a.position[1] - b.position[1]);
-        this.stats = new BookKeeper(Math.sqrt(dx*dx+dy*dy));
+        this.length = Math.sqrt(dx*dx+dy*dy);
     }
     
-    get speed(): number {
-        return this.stats.speed;
+    increment(): void {
+        this.weight += 5;
     }
     
-    get weight() {
-        return this.stats.weight;
+    decrement() : void {
+        // this formula stolen verbatim from chemicalburn,
+        this.weight = ((this.weight - 1) * 0.99) + 1;
     }
     
     receive(p: Packet, destination: Hub): void {
@@ -90,7 +66,7 @@ class Pipe {
         log(`P${p.id} received by ${this.toString()}`);
         const travellingAB = destination === this.ends[1];
         this.inflight.set(p, [travellingAB, 0]);
-        this.stats.increment();
+        this.increment();
     }
     
     step(dt: number): void {
@@ -100,7 +76,7 @@ class Pipe {
         // of those which are complete;
         for (let packet of this.inflight.keys()) {
             const flightState = this.inflight.get(packet);
-            const newProgress = flightState[1] + this.speed*dt*0.25;
+            const newProgress = flightState[1] + (this.weight*dt / this.length) * 0.25;
             
             if (newProgress <= 1)
             {
@@ -125,7 +101,7 @@ class Pipe {
             }
         }
         
-        this.stats.decay(dt);
+        this.decrement();
     }
 }
 
