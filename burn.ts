@@ -1,5 +1,7 @@
-// ad-hoc config
-let LOGGING = false;
+// Globals
+const nav: Map<Hub, Map<Hub, Hub>> = new Map();
+const LOGGING = false;
+let frameCount = 0;
 
 function log(str: string): void {
     if (LOGGING)
@@ -15,9 +17,6 @@ function randomSelection<T>(target: T[]): T {
     const index = Math.floor(Math.random() * target.length);
     return target[index];
 }
-
-// global navitaion data object. (I know, I know)
-const nav: Map<Hub, Map<Hub, Hub>> = new Map();
 
 // Data Types
 
@@ -51,7 +50,7 @@ class Pipe {
     }
     
     increment(): void {
-        this.weight += 5;
+        this.weight += 1;
     }
     
     decrement() : void {
@@ -71,12 +70,12 @@ class Pipe {
     
     step(dt: number): void {
         const delivered : Packet[] = [];
-        
         // loop through all the inflight packets, updating their status and making note
         // of those which are complete;
         for (let packet of this.inflight.keys()) {
             const flightState = this.inflight.get(packet);
-            const newProgress = flightState[1] + (this.weight*dt / this.length) * 0.25;
+            // todo: move weighting func to internal of weight property
+            const newProgress = flightState[1] + (Math.sqrt(this.weight) * dt / this.length) * 0.25;
             
             if (newProgress <= 1)
             {
@@ -133,6 +132,7 @@ class Link {
 }
 
 class Hub {
+    // x, y coordinates in world-space (i.e. in the range [0-1])
     readonly position: [number, number];
     readonly id: number;
     readonly links: Link[];
@@ -238,6 +238,15 @@ function render(ctx: CanvasRenderingContext2D, scene: Scene, height: number, wid
         let [x1, y1] = p.ends[0].position;
         let [x2, y2] = p.ends[1].position;
         
+       // todo: change this to proportional weighting rather than
+       // hard cutoff
+       if (p.weight >= 3) {
+        ctx.beginPath();
+        ctx.moveTo(x1 * width, y1 * height);
+        ctx.lineTo(x2 * width, y2 * height);
+        ctx.stroke();
+       }
+
         const packetSize = 4;
         for (let packet of p.inflight.keys()) {
             ctx.fillStyle = intToColor(packet.target.id);
@@ -259,8 +268,8 @@ function render(ctx: CanvasRenderingContext2D, scene: Scene, height: number, wid
     }
     
     const hubsize = 7;
+    ctx.fillStyle = "white";
     for (let h of hubs) {
-        ctx.fillStyle = intToColor(h.id);
         let [x, y] = h.position;
         ctx.fillRect(x*width - (hubsize/2), y*height - (hubsize/2), hubsize, hubsize);
     }
@@ -302,7 +311,7 @@ function dijkstra(graph: Hub[], source: Hub): Map<Hub, Hub> {
         
         for (let pipe of u.links) {
             const v = pipe.target;
-            const cost = dist.get(u) + pipe.weight;
+            const cost = dist.get(u) + 1 / pipe.weight;
             const prevCost = dist.get(v);
             if (cost < prevCost) {
                 dist.set(v, cost);
@@ -332,7 +341,7 @@ function main() {
     ctx.fillStyle = "black";
     ctx.fillRect(0, 0, width, height);
     
-    const scene = generateScene(100);
+    const scene = generateScene(25);
     const [hubs, pipes] = scene;
     
     render(ctx, scene, height, width);
@@ -349,11 +358,19 @@ function main() {
     
     let renderStep = function() {
         render(ctx, scene, height, width);
+        if (frameCount % 10 == 0) {
+            for (let h of hubs) {
+                const subnav = dijkstra(hubs, h);
+                nav.set(h, subnav);
+            }
+        }
         for (let p of pipes)
             p.step(1/60);
         randomSelection(hubs).receive(new Packet(randomSelection(hubs)));
         randomSelection(hubs).receive(new Packet(randomSelection(hubs)));
+        randomSelection(hubs).receive(new Packet(randomSelection(hubs)));
         window.requestAnimationFrame(renderStep);
+        frameCount += 1;
     }
     
     renderStep();
