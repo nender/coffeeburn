@@ -75,7 +75,7 @@ class Pipe {
         for (let packet of this.inflight.keys()) {
             const flightState = this.inflight.get(packet);
             // todo: move weighting func to internal of weight property
-            const newProgress = flightState[1] + (Math.sqrt(this.weight) * dt / this.length) * 0.25;
+            const newProgress = flightState[1] + (this.weight * dt / this.length) * 25;
             
             if (newProgress <= 1)
             {
@@ -170,7 +170,7 @@ class Hub {
 // Program
 
 type Scene = [Hub[], Pipe[]]
-function generateScene(numHubs: number): Scene {
+function generateScene(numHubs: number, width: number, height: number): Scene {
     function addNeighbor(a: Hub, b: Hub): void {
         function alreadyLinked(a: Hub, b: Hub): boolean {
             for (let x of a.links) {
@@ -193,8 +193,8 @@ function generateScene(numHubs: number): Scene {
     const pipes: Pipe[] = [];
     
     for (let i = 0; i < numHubs; i++) {
-        let x = Math.random();
-        let y = Math.random();
+        let x = Math.random() * width;
+        let y = Math.random() * height;
         hubs.push(new Hub(x,y));
     }
     
@@ -242,8 +242,8 @@ function render(ctx: CanvasRenderingContext2D, scene: Scene, height: number, wid
        // hard cutoff
        if (p.weight >= 3) {
         ctx.beginPath();
-        ctx.moveTo(x1 * width, y1 * height);
-        ctx.lineTo(x2 * width, y2 * height);
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
         ctx.stroke();
        }
 
@@ -254,14 +254,14 @@ function render(ctx: CanvasRenderingContext2D, scene: Scene, height: number, wid
             if (aToB) {
                 let dx = (x2 - x1) * progress;
                 let dy = (y2 - y1) * progress;
-                ctx.fillRect((x1+dx)*width - packetSize/2,
-                    (y1+dy)*height - packetSize/2,
+                ctx.fillRect((x1+dx) - packetSize/2,
+                    (y1+dy) - packetSize/2,
                     packetSize, packetSize);
             } else {
                 let dx = (x1 - x2) * progress;
                 let dy = (y1 - y2) * progress;
-                ctx.fillRect((x2+dx)*width - packetSize/2,
-                    (y2+dy)*height - packetSize/2,
+                ctx.fillRect((x2+dx) - packetSize/2,
+                    (y2+dy) - packetSize/2,
                     packetSize, packetSize);
             }
         }
@@ -271,7 +271,7 @@ function render(ctx: CanvasRenderingContext2D, scene: Scene, height: number, wid
     ctx.fillStyle = "white";
     for (let h of hubs) {
         let [x, y] = h.position;
-        ctx.fillRect(x*width - (hubsize/2), y*height - (hubsize/2), hubsize, hubsize);
+        ctx.fillRect(x - (hubsize/2), y - (hubsize/2), hubsize, hubsize);
     }
 }
 
@@ -337,7 +337,7 @@ function main() {
     ctx.fillStyle = "black";
     ctx.fillRect(0, 0, width, height);
     
-    const scene = generateScene(25);
+    const scene = generateScene(25, width, height);
     const [hubs, pipes] = scene;
     
     render(ctx, scene, height, width);
