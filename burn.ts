@@ -327,17 +327,13 @@ function main() {
     const canvas = document.getElementById('canvas') as HTMLCanvasElement;
     const ctx = canvas.getContext('2d');
     let height, width;
-    
-    function resizeHandler() {
-        height = Math.min(window.innerHeight, window.innerWidth);
-        width = height;
-        canvas.height = height;
-        canvas.width = width;
-    }
-    resizeHandler();
-    
-    window.onresize = resizeHandler;
-    
+
+    height = window.innerHeight;
+    canvas.height = height;
+
+    width = window.innerWidth;
+    canvas.width = width;
+
     ctx.fillStyle = "black";
     ctx.fillRect(0, 0, width, height);
     
