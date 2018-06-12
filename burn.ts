@@ -1,6 +1,17 @@
+/** Dictionary of possible functions to use for traffic and distance weighting */
+const weightFunctions = {
+    "linear": (x: number) => x,
+    "root": (x: number) => Math.sqrt(x),
+    "square": (x: number) => x*x,
+}
+
+// Config
+const LOGGING = false;
+const globalTrafficWeight = "linear";
+const globalDistanceWeight = "linear";
+
 // Globals
 const nav: Map<Hub, Map<Hub, Hub>> = new Map();
-const LOGGING = false;
 let frameCount = 0;
 
 function log(str: string): void {
@@ -43,26 +54,34 @@ class Packet {
 class Pipe {
     readonly ends: [Hub, Hub];
     readonly inflight: Set<Packet>;
-    weight: number;
-    length: number;
-    
+    private _weight: number;
+    private _length: number;
+
     constructor(a: Hub, b: Hub) {
         this.ends = [a, b];
-        this.weight = 1;
+        this._weight = 1;
         this.inflight = new Set();
         
         let dx = Math.abs(a.position[0] - b.position[0]);
         let dy = Math.abs(a.position[1] - b.position[1]);
-        this.length = Math.sqrt(dx*dx+dy*dy);
+        this._length = Math.sqrt(dx*dx+dy*dy);
     }
     
-    increment(): void {
-        this.weight += 1;
+    incrementWeight(): void {
+        this._weight += 1;
     }
     
-    decrement() : void {
+    decrementWeight() : void {
         // this formula stolen verbatim from chemicalburn,
-        this.weight = ((this.weight - 1) * 0.99) + 1;
+        this._weight = ((this.weight - 1) * 0.99) + 1;
+    }
+
+    get weight(): number {
+        return weightFunctions[globalTrafficWeight](this._weight);
+    }
+
+    get length() : number {
+        return weightFunctions[globalDistanceWeight](this._length);
     }
     
     receive(p: Packet, destination: Hub): void {
@@ -75,7 +94,7 @@ class Pipe {
         p.TProgress = 0;
         p.TSpeed = Math.sqrt(this.weight / this.length) * 0.25;
         this.inflight.add(p);
-        this.increment();
+        this.incrementWeight();
     }
     
     step(): void {
@@ -105,7 +124,7 @@ class Pipe {
             }
         }
         
-        this.decrement();
+        this.decrementWeight();
     }
 }
 
