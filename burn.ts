@@ -24,25 +24,29 @@ class Packet {
     readonly id: number;
     readonly target: Hub;
     
+    /** True if packet is currently travelling from A to B */
+    TAToB: boolean;
+    /** Float in the range 0<=x<1 indicating progress along current pipe*/
+    TProgress: number;
+    
     constructor(target: Hub) {
         this.id = getId();
         this.target = target;
+        this.TAToB = null;
+        this.TProgress = null;
     }
 }
 
-// boolean is whether the packet is travelling from hub a to b,
-// number is a float 0<=x<1 indicating the progress of the packet
-type InflightMap = Map<Packet, [boolean, number]>;
 class Pipe {
     readonly ends: [Hub, Hub];
-    readonly inflight: InflightMap;
+    readonly inflight: Set<Packet>;
     weight: number;
     length: number;
     
     constructor(a: Hub, b: Hub) {
         this.ends = [a, b];
-        this.inflight = new Map<Packet, [boolean, number]>();
         this.weight = 1;
+        this.inflight = new Set();
         
         let dx = Math.abs(a.position[0] - b.position[0]);
         let dy = Math.abs(a.position[1] - b.position[1]);
@@ -63,33 +67,30 @@ class Pipe {
             throw "Requested destination not available";
             
         log(`P${p.id} received by ${this.toString()}`);
-        const travellingAB = destination === this.ends[1];
-        this.inflight.set(p, [travellingAB, 0]);
+
+        p.TAToB = destination === this.ends[1];
+        p.TProgress = 0;
+        this.inflight.add(p);
         this.increment();
     }
     
     step(dt: number): void {
-        const delivered : Packet[] = [];
+        const delivered: Set<Packet> = new Set();
         // loop through all the inflight packets, updating their status and making note
         // of those which are complete;
-        for (let packet of this.inflight.keys()) {
-            const flightState = this.inflight.get(packet);
+        for (let packet of this.inflight) {
             // todo: move weighting func to internal of weight property
-            const newProgress = flightState[1] + (this.weight * dt / this.length) * 25;
+            const newProgress = packet.TProgress + (this.weight * dt / this.length) * 25;
             
             if (newProgress <= 1)
-            {
-                flightState[1] = newProgress;
-                this.inflight.set(packet, flightState);
-            }
+                packet.TProgress = newProgress;
             else
-                delivered.push(packet);
+                delivered.add(packet);
         }
         
         for (let packet of delivered) {
-            let [flyingAB, _] = this.inflight.get(packet);
             this.inflight.delete(packet);
-            if (flyingAB) {
+            if (packet.TAToB) {
                 log(`${packet.toString()} handed off to ${this.ends[1].toString()}`)
                 this.ends[1].receive(packet);
             }
@@ -250,7 +251,8 @@ function render(ctx: CanvasRenderingContext2D, scene: Scene, height: number, wid
         const packetSize = 4;
         for (let packet of p.inflight.keys()) {
             ctx.fillStyle = intToColor(packet.target.id);
-            const [aToB, progress] = p.inflight.get(packet);
+            const aToB = packet.TAToB;
+            const progress = packet.TProgress;
             if (aToB) {
                 let dx = (x2 - x1) * progress;
                 let dy = (y2 - y1) * progress;
