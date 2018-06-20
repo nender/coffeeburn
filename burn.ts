@@ -1,6 +1,6 @@
 // Config
 const LOGGING = false;
-const globalTrafficWeight: string = "sqrt";
+const globalTrafficWeight: string = "linear";
 const globalDistanceWeight: string = "square";
 
 // Globals
@@ -281,19 +281,20 @@ function render(ctx: CanvasRenderingContext2D, scene: Scene, height: number, wid
     const [hubs, pipes] = scene;
     
     for (let p of pipes) {
-        ctx.strokeStyle = "dimgrey";
-            
+        let lineWidth = Math.min(6, (p.weight - 1) / 24)
         let [x1, y1] = p.ends[0].position;
         let [x2, y2] = p.ends[1].position;
-        
-       // todo: change this to proportional weighting rather than
-       // hard cutoff
-       if (p.weight >= 3) {
-        ctx.beginPath();
-        ctx.moveTo(x1, y1);
-        ctx.lineTo(x2, y2);
-        ctx.stroke();
-       }
+
+        if (lineWidth >= 1/255) {
+
+            ctx.strokeStyle = "white";
+            ctx.lineWidth = lineWidth;
+
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.stroke();
+        }
 
         const packetSize = 4;
         for (let packet of p.inflight.keys()) {
