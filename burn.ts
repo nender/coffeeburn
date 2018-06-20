@@ -1,14 +1,7 @@
-/** Dictionary of possible functions to use for traffic and distance weighting */
-const weightFunctions = {
-    "linear": (x: number) => x,
-    "root": (x: number) => Math.sqrt(x),
-    "square": (x: number) => x*x,
-}
-
 // Config
 const LOGGING = false;
-const globalTrafficWeight = "linear";
-const globalDistanceWeight = "linear";
+const globalTrafficWeight: string = "sqrt";
+const globalDistanceWeight: string = "square";
 
 // Globals
 const nav: Map<Hub, Map<Hub, Hub>> = new Map();
@@ -55,6 +48,7 @@ class Pipe {
     readonly ends: [Hub, Hub];
     readonly inflight: Set<Packet>;
     private _weight: number;
+    /** Note that _length is in units squared */
     private _length: number;
 
     constructor(a: Hub, b: Hub) {
@@ -64,7 +58,7 @@ class Pipe {
         
         let dx = Math.abs(a.position[0] - b.position[0]);
         let dy = Math.abs(a.position[1] - b.position[1]);
-        this._length = Math.sqrt(dx*dx+dy*dy);
+        this._length = dx**2+dy**2;
     }
     
     incrementWeight(): void {
@@ -77,11 +71,41 @@ class Pipe {
     }
 
     get weight(): number {
-        return weightFunctions[globalTrafficWeight](this._weight);
+        let w = this._weight;
+        switch (globalTrafficWeight) {
+            case "none":
+                return 1;
+            case "linear":
+                return w;
+            case "sqrt":
+                return Math.sqrt(w);
+            case "square":
+                return w**2;
+            case "exp":
+                return Math.min(1e6, Math.exp(w / 3));
+            case "log":
+                return Math.log(w) + 1;
+            case "bell":
+                let aw = w / 3 - 2;
+                return Math.max(0.01, Math.exp(aw - aw**2 / 2) * 25) 
+        }
     }
 
     get length() : number {
-        return weightFunctions[globalDistanceWeight](this._length);
+        let l = this._length;
+        switch (globalDistanceWeight) {
+            case "linear":
+                return Math.sqrt(l);
+            case "sqrt":
+                return l**0.25 * 5;
+            case "square":
+                return l / 25;
+            case "exp":
+                // yes this seems nuts, I'm just copying reference implementation for now
+                return Math.min(1e6, Math.exp(Math.sqrt(l) / 10) / 3);
+            case "log":
+                return Math.max(1, (Math.log(l) / 2 + 1) * 25);
+        }
     }
     
     receive(p: Packet, destination: Hub): void {
