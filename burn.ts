@@ -170,8 +170,8 @@ class Link {
         }
     }
     
-    get weight(): number {
-        return this.pipe.weight;
+    get cost(): number {
+        return this.pipe.length / this.pipe.weight;
     }
     
     receive(p: Packet): void {
@@ -361,7 +361,7 @@ function dijkstra(graph: Hub[], source: Hub): Map<Hub, Hub> {
         
         for (let pipe of u.links) {
             const v = pipe.target;
-            const cost = dist.get(u) + 1 / pipe.weight;
+            const cost = dist.get(u) + pipe.cost;
             const prevCost = dist.get(v);
             if (cost < prevCost) {
                 dist.set(v, cost);
