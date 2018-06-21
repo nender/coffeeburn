@@ -1,7 +1,12 @@
 // Config
 const LOGGING = false;
-const globalTrafficWeight: string = "linear";
-const globalDistanceWeight: string = "square";
+
+let config = {
+    trafficWeight: "linear",
+    distanceWeight: "square",
+    nodePopulation: 75,
+    packetSpawnChance: 1 / 60,
+}
 
 // Globals
 const nav: Map<Hub, Map<Hub, Hub>> = new Map();
@@ -23,7 +28,6 @@ function randomSelection<T>(target: T[]): T {
 }
 
 // Data Types
-
 class Packet {
     readonly id: number;
     readonly target: Hub;
@@ -72,7 +76,7 @@ class Pipe {
 
     get weight(): number {
         let w = this._weight;
-        switch (globalTrafficWeight) {
+        switch (config.trafficWeight) {
             case "none":
                 return 1;
             case "linear":
@@ -93,7 +97,7 @@ class Pipe {
 
     get length() : number {
         let l = this._length;
-        switch (globalDistanceWeight) {
+        switch (config.distanceWeight) {
             case "linear":
                 return Math.sqrt(l);
             case "sqrt":
@@ -328,21 +332,21 @@ function render(ctx: CanvasRenderingContext2D, scene: Scene, height: number, wid
 /** Removes the hub from hubs which has the lowest cost in the lookup table */
 // todo: replace this with priority queue
 function popMinDist(hubs: Set<Hub>, costLookup: Map<Hub, number>): Hub {
-        let minDist = Infinity;
+    let minDist = Infinity;
     let hub: Hub = hubs.values().next().value;
-            
+        
     for (let v of hubs.keys()) {
         let weight = costLookup.get(v);
-            if (weight < minDist) {
-                minDist = weight;
-                hub = v;
-            }
+        if (weight < minDist) {
+            minDist = weight;
+            hub = v;
         }
-        
-    hubs.delete(hub);
-        return hub;
     }
     
+    hubs.delete(hub);
+    return hub;
+}
+
 function dijkstra(graph: Hub[], source: Hub): Map<Hub, Hub> {
     
     /** set of all verticies not yet considered by the algorithm */
@@ -390,7 +394,7 @@ function main() {
     ctx.fillStyle = "black";
     ctx.fillRect(0, 0, width, height);
     
-    const scene = generateScene(25, width, height);
+    const scene = generateScene(config.nodePopulation, width, height);
     const [hubs, pipes] = scene;
     
     render(ctx, scene, height, width);
@@ -413,9 +417,8 @@ function main() {
         for (let p of pipes)
             p.step();
 
-        const packetSpawnChance = 1/60;
         for (let h of hubs) {
-            if (Math.random() < packetSpawnChance)
+            if (Math.random() < config.packetSpawnChance)
                 h.receive(new Packet(randomSelection(hubs)))
         }
 
