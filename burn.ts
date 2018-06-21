@@ -190,11 +190,13 @@ class Hub {
     readonly position: [number, number];
     readonly id: number;
     readonly links: Link[];
+    isDead: boolean;
     
     constructor(x: number, y: number) {
         this.position = [x, y]
         this.id = getId();
         this.links = [];
+        this.isDead = false;
     }
     
     receive(p: Packet): void {
@@ -298,8 +300,11 @@ function render(ctx: CanvasRenderingContext2D, scene: Scene, height: number, wid
         let [x2, y2] = p.ends[1].position;
 
         if (lineWidth >= 1/255) {
+            if (p.ends[0].isDead || p.ends[1].isDead)
+                ctx.strokeStyle = "red";
+            else 
+                ctx.strokeStyle = "white";
 
-            ctx.strokeStyle = "white";
             ctx.lineWidth = lineWidth;
 
             ctx.beginPath();
@@ -330,8 +335,12 @@ function render(ctx: CanvasRenderingContext2D, scene: Scene, height: number, wid
     }
     
     const hubsize = 7;
-    ctx.fillStyle = "white";
     for (let h of hubs) {
+        if (h.isDead)
+            ctx.fillStyle = "red";
+        else
+            ctx.fillStyle = "white";
+
         let [x, y] = h.position;
         ctx.fillRect(x - (hubsize/2), y - (hubsize/2), hubsize, hubsize);
     }
@@ -447,7 +456,7 @@ function main() {
             if (roll < addChance + addChance * popDelta) {
                 generateHub(scene[0], scene[1], width, height)
             } else if (roll < config.addRemoveChance) {
-                // remove node
+                randomSelection(hubs).isDead = true;
             }
         }
 
