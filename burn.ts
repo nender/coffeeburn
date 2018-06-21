@@ -325,47 +325,50 @@ function render(ctx: CanvasRenderingContext2D, scene: Scene, height: number, wid
     }
 }
 
-function dijkstra(graph: Hub[], source: Hub): Map<Hub, Hub> {
-    function popMinDistFromQ(): Hub {
+/** Removes the hub from hubs which has the lowest cost in the lookup table */
+// todo: replace this with priority queue
+function popMinDist(hubs: Set<Hub>, costLookup: Map<Hub, number>): Hub {
         let minDist = Infinity;
-        let hub: Hub = Q.values().next().value;
+    let hub: Hub = hubs.values().next().value;
             
-        for (let v of Q.keys()) {
-            let weight = dist.get(v);
+    for (let v of hubs.keys()) {
+        let weight = costLookup.get(v);
             if (weight < minDist) {
                 minDist = weight;
                 hub = v;
             }
         }
         
-        Q.delete(hub);
+    hubs.delete(hub);
         return hub;
     }
     
-    // set of all verticies not yet considered by the algorithm
-    const Q = new Set<Hub>();
-    // map of hub -> shortest path from source
-    const dist = new Map<Hub, number>();
-    // map of hub -> next hop on path to source
-    const prev = new Map<Hub, Hub>();
-    for (let v of graph) {
-        dist.set(v, Infinity);
-        prev.set(v, null);
-        Q.add(v);
-    }
-    dist.set(source, 0);
+function dijkstra(graph: Hub[], source: Hub): Map<Hub, Hub> {
     
-    while (Q.size > 0) {
-        // destructively remove node with minimum distance from Q
-        const u = popMinDistFromQ();
+    /** set of all verticies not yet considered by the algorithm */
+    const candidateHubs = new Set<Hub>();
+    /** Map of Hub -> shortest path so far from source to Hub  */
+    const minPathCost = new Map<Hub, number>();
+    /** map of hub -> next hop on path to source */
+    const prev = new Map<Hub, Hub>();
+
+    for (let v of graph) {
+        minPathCost.set(v, Infinity);
+        prev.set(v, null);
+        candidateHubs.add(v);
+    }
+    minPathCost.set(source, 0);
+    
+    while (candidateHubs.size > 0) {
+        const closestHub = popMinDist(candidateHubs, minPathCost);
         
-        for (let pipe of u.links) {
-            const v = pipe.target;
-            const cost = dist.get(u) + pipe.cost;
-            const prevCost = dist.get(v);
-            if (cost < prevCost) {
-                dist.set(v, cost);
-                prev.set(v, u);
+        for (let link of closestHub.links) {
+            const linkTarget = link.target;
+            const currentBestCost = minPathCost.get(closestHub) + link.cost;
+            const prevBestCost = minPathCost.get(linkTarget);
+            if (currentBestCost < prevBestCost) {
+                minPathCost.set(linkTarget, currentBestCost);
+                prev.set(linkTarget, closestHub);
             }
         }
     }
