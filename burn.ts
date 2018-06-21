@@ -4,9 +4,9 @@ const LOGGING = false;
 let config = {
     trafficWeight: "linear",
     distanceWeight: "square",
-    idealNodePop: 10,
+    idealNodePop: 50,
     packetSpawnChance: 1 / 30,
-    addRemoveNodes: true,
+    addRemoveNodes: false,
     addRemoveChance: 1/100
 }
 
