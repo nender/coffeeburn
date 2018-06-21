@@ -4,8 +4,10 @@ const LOGGING = false;
 let config = {
     trafficWeight: "linear",
     distanceWeight: "square",
-    nodePopulation: 75,
-    packetSpawnChance: 1 / 60,
+    idealNodePop: 10,
+    packetSpawnChance: 1 / 30,
+    addRemoveNodes: true,
+    addRemoveChance: 1/100
 }
 
 // Globals
@@ -222,7 +224,8 @@ class Hub {
 // Program
 
 type Scene = [Hub[], Pipe[]]
-function generateScene(numHubs: number, width: number, height: number): Scene {
+
+function generateHub(hubs: Hub[], pipes: Pipe[], width, height): void {
     function addNeighbor(a: Hub, b: Hub): void {
         function alreadyLinked(a: Hub, b: Hub): boolean {
             for (let x of a.links) {
@@ -241,18 +244,23 @@ function generateScene(numHubs: number, width: number, height: number): Scene {
         b.links.push(new Link(b, p));
     }
     
+    let x = Math.floor(Math.random() * width);
+    let y = Math.floor(Math.random() * height);
+    let newHub = new Hub(x, y);
+    for (let x of hubs) {
+        addNeighbor(x, newHub);
+        addNeighbor(newHub, x);
+    }
+    hubs.push(newHub);
+}
+
+function generateScene(numHubs: number, width: number, height: number): Scene {
     const hubs: Hub[] = [];
     const pipes: Pipe[] = [];
     
     for (let i = 0; i < numHubs; i++) {
-        let x = Math.random() * width;
-        let y = Math.random() * height;
-        hubs.push(new Hub(x,y));
+        generateHub(hubs, pipes, width, height);
     }
-    
-    for (let x of hubs)
-        for (let y of hubs)
-            addNeighbor(x, y);
     
     return [hubs, pipes];
 }
@@ -394,7 +402,7 @@ function main() {
     ctx.fillStyle = "black";
     ctx.fillRect(0, 0, width, height);
     
-    const scene = generateScene(config.nodePopulation, width, height);
+    const scene = generateScene(config.idealNodePop, width, height);
     const [hubs, pipes] = scene;
     
     render(ctx, scene, height, width);
@@ -418,8 +426,29 @@ function main() {
             p.step();
 
         for (let h of hubs) {
-            if (Math.random() < config.packetSpawnChance)
-                h.receive(new Packet(randomSelection(hubs)))
+            // test nav to make sure we only route to and from packets which we
+            // have routing info on
+            if (!nav.has(h))
+                continue;
+
+            if (Math.random() < config.packetSpawnChance) {
+                let target: Hub;
+                do {
+                    target = randomSelection(hubs);
+                } while (!nav.has(target))
+                h.receive(new Packet(target));
+            }
+        }
+
+        if (config.addRemoveNodes) {
+            let popDelta = 0 // (config.idealNodePop - scene[0].length) / config.idealNodePop;
+            let roll = Math.random();
+            let addChance = config.addRemoveChance / 2;
+            if (roll < addChance + addChance * popDelta) {
+                generateHub(scene[0], scene[1], width, height)
+            } else if (roll < config.addRemoveChance) {
+                // remove node
+            }
         }
 
         window.requestAnimationFrame(renderStep);
