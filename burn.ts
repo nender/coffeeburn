@@ -397,10 +397,6 @@ function main() {
         nav.set(h, subnav);
     }
     
-    for (let i = 0; i < 100; i++) {
-        const target = randomSelection(hubs);
-        randomSelection(hubs).receive(new Packet(target));
-    }
     
     let renderStep = function() {
         render(ctx, scene, height, width);
@@ -410,11 +406,16 @@ function main() {
                 nav.set(h, subnav);
             }
         }
+
         for (let p of pipes)
             p.step();
-        randomSelection(hubs).receive(new Packet(randomSelection(hubs)));
-        randomSelection(hubs).receive(new Packet(randomSelection(hubs)));
-        randomSelection(hubs).receive(new Packet(randomSelection(hubs)));
+
+        const packetSpawnChance = 1/60;
+        for (let h of hubs) {
+            if (Math.random() < packetSpawnChance)
+                h.receive(new Packet(randomSelection(hubs)))
+        }
+
         window.requestAnimationFrame(renderStep);
         frameCount += 1;
     }
