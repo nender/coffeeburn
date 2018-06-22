@@ -402,38 +402,34 @@ function dijkstra(graph: Hub[], source: Hub): Map<Hub, Hub> {
     return prev;
 }
 
-function main() {
-    const canvas = document.getElementById('canvas') as HTMLCanvasElement;
-    const ctx = canvas.getContext('2d');
-    let height, width;
-
-    height = window.innerHeight;
-    canvas.height = height;
-
-    width = window.innerWidth;
-    canvas.width = width;
-
-    ctx.fillStyle = "black";
-    ctx.fillRect(0, 0, width, height);
-    
-    const scene = generateScene(config.idealNodePop, width, height);
-    const [hubs, pipes] = scene;
-    
-    render(ctx, scene, height, width);
-    
+function updateNav(hubs: Set<Hub>) {
     for (let h of hubs) {
         const subnav = dijkstra(hubs, h);
         nav.set(h, subnav);
     }
+}
+
+function main() {
+    const height = window.innerHeight;
+    const width = window.innerWidth;
+
+    const canvas = document.getElementById('canvas') as HTMLCanvasElement;
+    canvas.height = height;
+    canvas.width = width;
+
+    const ctx = canvas.getContext('2d');
+
+    const scene = generateScene(config.idealNodePop, width, height);
+    const [hubs, pipes] = scene;
     
-    
+    render(ctx, scene, height, width);
+    updateNav(hubs);
+
     let renderStep = function() {
         render(ctx, scene, height, width);
+
         if (frameCount % 10 == 0) {
-            for (let h of hubs) {
-                const subnav = dijkstra(hubs, h);
-                nav.set(h, subnav);
-            }
+            updateNav(hubs);
         }
 
         for (let p of pipes)
@@ -455,7 +451,7 @@ function main() {
         }
 
         if (config.addRemoveNodes) {
-            let popDelta = 0 // (config.idealNodePop - scene[0].length) / config.idealNodePop;
+            let popDelta = (config.idealNodePop - scene[0].size) / config.idealNodePop;
             let roll = Math.random();
             let addChance = config.addRemoveChance / 2;
             if (roll < addChance + addChance * popDelta) {
