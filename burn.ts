@@ -135,7 +135,7 @@ class Pipe {
             // todo: move weighting func to internal of weight property
             const newProgress = packet.TProgress + packet.TSpeed;
             
-            if (newProgress <= 1)
+            if (newProgress < 1)
                 packet.TProgress = newProgress;
             else
                 delivered.add(packet);
@@ -177,6 +177,11 @@ class Link {
     }
     
     get cost(): number {
+        if (this.target.isDead)
+            // max value and not infinity here as we still need packets to be
+            // able to make it to a dead node
+            return Number.MAX_VALUE;
+        else
         return this.pipe.length / this.pipe.weight;
     }
     
