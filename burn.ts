@@ -442,14 +442,14 @@ function main() {
         for (let h of hubs) {
             // test nav to make sure we only route to and from packets which we
             // have routing info on
-            if (!nav.has(h))
+            if (h.isDead || !nav.has(h))
                 continue;
 
             if (Math.random() < config.packetSpawnChance) {
                 let target: Hub;
                 do {
                     target = randomSelection(hubs);
-                } while (!nav.has(target))
+                } while (target.isDead || !nav.has(target))
                 h.receive(new Packet(target));
             }
         }
