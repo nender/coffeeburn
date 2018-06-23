@@ -6,8 +6,9 @@ let config = {
     distanceWeight: "square",
     idealNodePop: 50,
     packetSpawnChance: 1 / 30,
-    addRemoveNodes: false,
-    addRemoveChance: 1/100
+    addRemoveNodes: true,
+    addRemoveChance: 1/100,
+    deadPacketTTL: 10*60
 }
 
 // Globals
@@ -190,8 +191,9 @@ class Hub {
             
         const nextHop = nav.get(p.target).get(this);
         let target = this.neighbors.get(nextHop);
-        
-        target.receive(p, nextHop);
+
+        if (target !== undefined)
+            target.receive(p, nextHop);
     }
 }
 
@@ -384,11 +386,30 @@ function main() {
     render(ctx, scene, height, width);
     updateNav(hubs);
 
-    let renderStep = function() {
+    let toRemove: [Hub, number][] = [];
+    function renderStep() {
         render(ctx, scene, height, width);
 
-        if (frameCount % 10 == 0) {
+        if (frameCount % 10 == 0)
             updateNav(hubs);
+
+        for (let i = 0; i < toRemove.length; i++) {
+            let [h, t] = toRemove[i];
+            if (frameCount - t > config.deadPacketTTL) {
+                toRemove.splice(i, 1);
+                i -= 1;
+
+                let pos = hubs.indexOf(h);
+                hubs.splice(pos, 1);
+
+                for (let [n, p] of h.neighbors) {
+                    h.neighbors.delete(n);
+                    n.neighbors.delete(h);
+
+                    let pos = pipes.indexOf(p);
+                    pipes.splice(pos, 1);
+                }
+            }
         }
 
         for (let p of pipes)
@@ -416,7 +437,9 @@ function main() {
             if (roll < addChance + addChance * popDelta) {
                 generateHub(scene[0], scene[1], width, height)
             } else if (roll < config.addRemoveChance) {
-                randomSelection(hubs).isDead = true;
+                let hub = randomSelection(hubs);
+                hub.isDead = true;
+                toRemove.push([hub, frameCount]);
             }
         }
 
