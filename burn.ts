@@ -8,12 +8,14 @@ let config = {
     packetSpawnChance: 1 / 30,
     addRemoveNodes: true,
     addRemoveChance: 1/100,
+    packetOfDeath: false,
     deadPacketTTL: 10*60
 }
 
 // Globals
 const nav: Map<Hub, Map<Hub, Hub>> = new Map();
 let frameCount = 0;
+let Scene: Scene = null;
 
 function log(str: string): void {
     if (LOGGING)
@@ -34,6 +36,7 @@ function randomSelection<T>(target: T[]): T {
 class Packet {
     readonly id: number;
     readonly target: Hub;
+    readonly isPOD: boolean;
     
     /** True if packet is currently travelling from A to B */
     TAToB: boolean;
@@ -42,9 +45,10 @@ class Packet {
     /** Number indicating the packet's speed along the current Pipe */
     TSpeed: number;
     
-    constructor(target: Hub) {
+    constructor(target: Hub, isPOD: boolean) {
         this.id = getId();
         this.target = target;
+        this.isPOD = isPOD;
         this.TAToB = null;
         this.TProgress = null;
         this.TSpeed = null;
@@ -181,10 +185,21 @@ class Hub {
     }
     
     receive(p: Packet): void {
+        if (p.isPOD)
+            this.isDead = true;
+
         if (p.target === this) {
-            log(`P${p.id} delivered to ${this.id}!`);
-            return;
-       }
+            if (p.isPOD) {
+                let target: Hub;
+                do {
+                    target = randomSelection(Scene[0]);
+                } while (target.isDead || !nav.has(target))
+                p = new Packet(target, true);
+            } else {
+                log(`P${p.id} delivered to ${this.id}!`);
+                return;
+            }
+        }
             
         if (this.neighbors.size === 0)
             throw "No links";
@@ -230,7 +245,6 @@ function generateScene(numHubs: number, width: number, height: number): Scene {
     for (let i = 0; i < numHubs; i++) {
         generateHub(hubs, pipes, width, height);
     }
-    
     return [hubs, pipes];
 }
 
@@ -380,15 +394,19 @@ function main() {
 
     const ctx = canvas.getContext('2d');
 
-    const scene = generateScene(config.idealNodePop, width, height);
-    const [hubs, pipes] = scene;
+    Scene = generateScene(config.idealNodePop, width, height);
+    const [hubs, pipes] = Scene;
     
-    render(ctx, scene, height, width);
+    render(ctx, Scene, height, width);
     updateNav(hubs);
+    
+    if (config.packetOfDeath) {
+        randomSelection(hubs).receive(new Packet(randomSelection(hubs), true));
+    }
 
     let toRemove: [Hub, number][] = [];
     function renderStep() {
-        render(ctx, scene, height, width);
+        render(ctx, Scene, height, width);
 
         if (frameCount % 10 == 0)
             updateNav(hubs);
@@ -426,16 +444,16 @@ function main() {
                 do {
                     target = randomSelection(hubs);
                 } while (target.isDead || !nav.has(target))
-                h.receive(new Packet(target));
+                h.receive(new Packet(target, false));
             }
         }
 
         if (config.addRemoveNodes) {
-            let popDelta = (config.idealNodePop - scene[0].length) / config.idealNodePop;
+            let popDelta = (config.idealNodePop - Scene[0].length) / config.idealNodePop;
             let roll = Math.random();
             let addChance = config.addRemoveChance / 2;
             if (roll < addChance + addChance * popDelta) {
-                generateHub(scene[0], scene[1], width, height)
+                generateHub(Scene[0], Scene[1], width, height)
             } else if (roll < config.addRemoveChance) {
                 let hub = randomSelection(hubs);
                 hub.isDead = true;
