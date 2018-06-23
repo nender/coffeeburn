@@ -97,7 +97,7 @@ class Pipe {
         }
     }
 
-    get length() : number {
+    get length(): number {
         let l = this._length;
         switch (config.distanceWeight) {
             case "linear":
@@ -112,6 +112,13 @@ class Pipe {
             case "log":
                 return Math.max(1, (Math.log(l) / 2 + 1) * 25);
         }
+    }
+    
+    get cost(): number {
+        if (this.ends[0].isDead || this.ends[1].isDead)
+            return Number.MAX_VALUE;
+        else
+            return this.length / this.weight;
     }
     
     receive(p: Packet, destination: Hub): void {
@@ -158,49 +165,17 @@ class Pipe {
     }
 }
 
-class Link {
-    readonly target: Hub;
-    readonly source: Hub;
-    private pipe: Pipe;
-    
-    constructor(from: Hub, pipe: Pipe) {
-        this.pipe = pipe;
-        if (from === pipe.ends[0]) {
-            this.target = pipe.ends[1];
-            this.source = pipe.ends[0];
-        } else if (from === pipe.ends[1]) {
-            this.target = pipe.ends[0];
-            this.source = pipe.ends[1];
-        } else {
-            throw "From is not one of pipe ends";
-        }
-    }
-    
-    get cost(): number {
-        if (this.target.isDead)
-            // max value and not infinity here as we still need packets to be
-            // able to make it to a dead node
-            return Number.MAX_VALUE;
-        else
-        return this.pipe.length / this.pipe.weight;
-    }
-    
-    receive(p: Packet): void {
-        this.pipe.receive(p, this.target);
-    }
-}
-
 class Hub {
     // x, y coordinates in world-space (i.e. in the range [0-1])
     readonly position: [number, number];
     readonly id: number;
-    readonly links: Link[];
+    readonly neighbors: Map<Hub, Pipe>;
     isDead: boolean;
     
     constructor(x: number, y: number) {
         this.position = [x, y]
         this.id = getId();
-        this.links = [];
+        this.neighbors = new Map();
         this.isDead = false;
     }
     
@@ -210,20 +185,13 @@ class Hub {
             return;
        }
             
-        if (this.links.length === 0)
+        if (this.neighbors.size === 0)
             throw "No links";
             
         const nextHop = nav.get(p.target).get(this);
-        let targetLink: Link = null;
-        for (let p of this.links) {
-            if (p.target === nextHop) {
-                targetLink = p;
-                break;
-            }
-        }
+        let target = this.neighbors.get(nextHop);
         
-        log(`${this.toString()} routing ${p.toString()} on ${targetLink.toString()}`);
-        targetLink.receive(p);
+        target.receive(p, nextHop);
     }
 }
 
@@ -234,21 +202,13 @@ type Scene = [Hub[], Pipe[]]
 
 function generateHub(hubs: Hub[], pipes: Pipe[], width, height): void {
     function addNeighbor(a: Hub, b: Hub): void {
-        function alreadyLinked(a: Hub, b: Hub): boolean {
-            for (let x of a.links) {
-                if (x.target === b)
-                    return true;
-            }
-            return false;
-        }
-        
-        if (alreadyLinked(a, b))
+        if (a.neighbors.has(b))
             return;
         
         const p = new Pipe(a, b);
         pipes.push(p);
-        a.links.push(new Link(a, p));
-        b.links.push(new Link(b, p));
+        a.neighbors.set(b, p);
+        b.neighbors.set(a, p);
     }
     
     let x = Math.floor(Math.random() * width);
@@ -369,7 +329,7 @@ function popMinDist(hubs: Set<Hub>, costLookup: Map<Hub, number>): Hub {
     return hub;
 }
 
-function dijkstra(graph: Hub[], source: Hub): Map<Hub, Hub> {
+function dijkstra(graph: Iterable<Hub>, source: Hub): Map<Hub, Hub> {
     
     /** set of all verticies not yet considered by the algorithm */
     const candidateHubs = new Set<Hub>();
@@ -388,13 +348,12 @@ function dijkstra(graph: Hub[], source: Hub): Map<Hub, Hub> {
     while (candidateHubs.size > 0) {
         const closestHub = popMinDist(candidateHubs, minPathCost);
         
-        for (let link of closestHub.links) {
-            const linkTarget = link.target;
-            const currentBestCost = minPathCost.get(closestHub) + link.cost;
-            const prevBestCost = minPathCost.get(linkTarget);
+        for (let [hub, pipe] of closestHub.neighbors) {
+            const currentBestCost = minPathCost.get(closestHub) + pipe.cost;
+            const prevBestCost = minPathCost.get(hub);
             if (currentBestCost < prevBestCost) {
-                minPathCost.set(linkTarget, currentBestCost);
-                prev.set(linkTarget, closestHub);
+                minPathCost.set(hub, currentBestCost);
+                prev.set(hub, closestHub);
             }
         }
     }
@@ -402,7 +361,7 @@ function dijkstra(graph: Hub[], source: Hub): Map<Hub, Hub> {
     return prev;
 }
 
-function updateNav(hubs: Set<Hub>) {
+function updateNav(hubs: Iterable<Hub>) {
     for (let h of hubs) {
         const subnav = dijkstra(hubs, h);
         nav.set(h, subnav);
@@ -451,7 +410,7 @@ function main() {
         }
 
         if (config.addRemoveNodes) {
-            let popDelta = (config.idealNodePop - scene[0].size) / config.idealNodePop;
+            let popDelta = (config.idealNodePop - scene[0].length) / config.idealNodePop;
             let roll = Math.random();
             let addChance = config.addRemoveChance / 2;
             if (roll < addChance + addChance * popDelta) {
