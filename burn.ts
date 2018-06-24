@@ -4,12 +4,12 @@ const LOGGING = false;
 let config = {
     trafficWeight: "linear",
     distanceWeight: "square",
-    idealNodePop: 50,
-    packetSpawnChance: 1 / 30,
+    nodeCount: 30,
+    packetSpawnChance: 1 / 60,
     addRemoveNodes: true,
-    addRemoveChance: 1/100,
+    addRemoveChance: 1 / 100,
     packetOfDeath: false,
-    deadPacketTTL: 10*60
+    deadNodeTTL: 10 * 60
 }
 
 // Globals
@@ -386,6 +386,20 @@ function updateNav(hubs: Iterable<Hub>) {
 }
 
 function main() {
+    let params = new URLSearchParams(document.location.search);
+    for (let k in config) {
+        if (params.has(k)) {
+            try {
+                config[k] = JSON.parse(params.get(k));
+            } catch (e) {
+                config[k] = params.get(k);
+            }
+        } else {
+            params.set(k, config[k].toString());
+        }
+    }
+    history.replaceState(0, document.title, "?"+params.toString());
+
     const height = window.innerHeight;
     const width = window.innerWidth;
 
@@ -395,7 +409,7 @@ function main() {
 
     const ctx = canvas.getContext('2d');
 
-    Scene = generateScene(config.idealNodePop, width, height);
+    Scene = generateScene(config.nodeCount, width, height);
     const [hubs, pipes] = Scene;
     
     render(ctx, Scene, height, width);
@@ -415,7 +429,7 @@ function main() {
 
         for (let i = 0; i < toRemove.length; i++) {
             let [h, t] = toRemove[i];
-            if (frameCount - t > config.deadPacketTTL) {
+            if (frameCount - t > config.deadNodeTTL) {
                 toRemove.splice(i, 1);
                 i -= 1;
 
@@ -451,7 +465,7 @@ function main() {
         }
 
         if (config.addRemoveNodes) {
-            let popDelta = (config.idealNodePop - Scene[0].length) / config.idealNodePop;
+            let popDelta = (config.nodeCount - Scene[0].length) / config.nodeCount;
             let roll = Math.random();
             let addChance = config.addRemoveChance / 2;
             if (roll < addChance + addChance * popDelta) {
