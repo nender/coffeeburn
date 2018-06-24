@@ -45,7 +45,7 @@ class Packet {
     /** Number indicating the packet's speed along the current Pipe */
     TSpeed: number;
     
-    constructor(target: Hub, isPOD: boolean) {
+    constructor(target: Hub, isPOD = false) {
         this.id = getId();
         this.target = target;
         this.isPOD = isPOD;
@@ -194,7 +194,8 @@ class Hub {
                 do {
                     target = randomSelection(Scene[0]);
                 } while (target.isDead || !nav.has(target))
-                p = new Packet(target, true);
+                let isPOD = true;
+                p = new Packet(target, isPOD);
             } else {
                 log(`P${p.id} delivered to ${this.id}!`);
                 return;
@@ -401,7 +402,8 @@ function main() {
     updateNav(hubs);
     
     if (config.packetOfDeath) {
-        randomSelection(hubs).receive(new Packet(randomSelection(hubs), true));
+        let isPOD = true;
+        randomSelection(hubs).receive(new Packet(randomSelection(hubs), isPOD));
     }
 
     let toRemove: [Hub, number][] = [];
@@ -444,7 +446,7 @@ function main() {
                 do {
                     target = randomSelection(hubs);
                 } while (target.isDead || !nav.has(target))
-                h.receive(new Packet(target, false));
+                h.receive(new Packet(target));
             }
         }
 
