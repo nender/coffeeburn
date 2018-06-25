@@ -6,6 +6,9 @@ export class MinimumPriorityQueue<T> {
 
     constructor() {
         this.marked = new Set();
+        this.roots = [];
+        this.valueToNode = new Map();
+        this.min = null;
     }
 
     insert(value: T, priority: number) {
@@ -13,7 +16,7 @@ export class MinimumPriorityQueue<T> {
         this.valueToNode.set(value, newNode);
         this.roots.push(newNode);
 
-        if (newNode.key < this.min.key)
+        if (!this.min || newNode.key < this.min.key)
             this.min = newNode;
     }
 
@@ -22,7 +25,7 @@ export class MinimumPriorityQueue<T> {
     }
 
     empty(): boolean {
-        throw "notimplemented";
+        return this.roots.length > 0;
     }
 
     popMinimum(): T {
@@ -39,7 +42,7 @@ export class MinimumPriorityQueue<T> {
 
         // update min
         for (let n of this.roots) {
-            if (this.min === null || n.key < this.min.key)
+            if (!this.min || n.key < this.min.key)
                 this.min = n;
         }
 
