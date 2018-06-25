@@ -46,19 +46,32 @@ export class MinimumPriorityQueue<T> {
         // consolidate trees so that no two roots have same rank
         let ranks = new Map<number, Node<T>>();
         for (let i = this.roots.length - 1; i >= 0; i--) {
-            let currentNode = this.roots[i];
-            let originalRank = currentNode.children.length;
-            if (ranks.has(originalRank)) {
-                let oldNode = ranks.get(originalRank);
-                let oldIndex = this.roots.indexOf(oldNode);
-                this.roots.splice(oldIndex, 1);
-                currentNode.children.push(oldNode);
-            } else {
-                ranks.set(originalRank, currentNode);
-            }
+            let node = this.roots[i];
+            this.consolidateTrees(node, ranks);
         }
 
         return oldMin.value;
+    }
+
+    private consolidateTrees(node: Node<T>, ranks: Map<number, Node<T>>) {
+        let originalRank = node.children.length;
+        if (!ranks.has(originalRank)) {
+            ranks.set(originalRank, node);
+            return;
+        } else {
+            let oldNode = ranks.get(originalRank);
+            if (oldNode.key > node.key) {
+                let removeIndex = this.roots.indexOf(oldNode);
+                this.roots.splice(removeIndex, 1);
+                node.children.push(oldNode);
+                this.consolidateTrees(node, ranks);
+            } else {
+                let removeIndex = this.roots.indexOf(node);
+                this.roots.splice(removeIndex, 1);
+                oldNode.children.push(node);
+                this.consolidateTrees(oldNode, ranks);
+            }
+        }
     }
 }
 
