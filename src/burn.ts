@@ -1,3 +1,4 @@
+import { MinimumPriorityQueue } from "./MinimumPriorityQueue.js";
 
 // Config
 const LOGGING = false;
@@ -350,7 +351,7 @@ function popMinDist(hubs: Set<Hub>, costLookup: Map<Hub, number>): Hub {
 function dijkstra(graph: Iterable<Hub>, source: Hub): Map<Hub, Hub> {
     
     /** set of all verticies not yet considered by the algorithm */
-    const candidateHubs = new Set<Hub>();
+    const candidateHubs = new MinimumPriorityQueue<Hub>();
     /** Map of Hub -> shortest path so far from source to Hub  */
     const minPathCost = new Map<Hub, number>();
     /** map of hub -> next hop on path to source */
@@ -359,12 +360,13 @@ function dijkstra(graph: Iterable<Hub>, source: Hub): Map<Hub, Hub> {
     for (let v of graph) {
         minPathCost.set(v, Infinity);
         prev.set(v, null);
-        candidateHubs.add(v);
+        candidateHubs.insert(v, Infinity);
     }
     minPathCost.set(source, 0);
+    candidateHubs.decreaseKey(source, 0);
     
-    while (candidateHubs.size > 0) {
-        const closestHub = popMinDist(candidateHubs, minPathCost);
+    while (!candidateHubs.empty()) {
+        const closestHub = candidateHubs.popMinimum();
         
         for (let [hub, pipe] of closestHub.neighbors) {
             const currentBestCost = minPathCost.get(closestHub) + pipe.cost;
@@ -372,6 +374,7 @@ function dijkstra(graph: Iterable<Hub>, source: Hub): Map<Hub, Hub> {
             if (currentBestCost < prevBestCost) {
                 minPathCost.set(hub, currentBestCost);
                 prev.set(hub, closestHub);
+                candidateHubs.decreaseKey(hub, currentBestCost);
             }
         }
     }
