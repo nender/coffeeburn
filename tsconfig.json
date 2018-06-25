@@ -1,12 +1,10 @@
 {
     "compilerOptions": {
+        "rootDir": "./src",
+        "outDir": "./dist",
         "target": "es6",
-        "lib": ["es5", "es6", "dom"],
-        "module": "commonjs",
+        "lib": ["es6", "dom"],
         "sourceMap": true,
-        "outDir": "script"
+        "downlevelIteration": true
     },
-    "files": [
-        "burn.ts"
-    ]
 }
