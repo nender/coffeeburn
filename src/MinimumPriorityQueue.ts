@@ -25,7 +25,7 @@ export class MinimumPriorityQueue<T> {
         if (!parent) {
             this.updateMin();
             return;
-        } else if (node.key > parent.key) {
+        } else if (node.key >= parent.key) {
             return;
         } else {
             this.cut(node);
@@ -116,6 +116,7 @@ export class MinimumPriorityQueue<T> {
                 this.consolidateTrees(oldNode, ranks);
             }
         }
+        this.updateMin();
     }
 
     nodeCount(): number {

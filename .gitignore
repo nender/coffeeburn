@@ -1,4 +1,6 @@
+.DS_store
 script
 .vscode
 dist/*.js
 dist/*.js.map
+node_modules/
