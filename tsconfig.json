@@ -4,9 +4,9 @@
         "outDir": "./dist",
         "target": "es6",
         "lib": ["es6", "dom"],
-        "sourceMap": true,
         "downlevelIteration": true,
-        "inlineSourceMap": true
+        "inlineSourceMap": true,
+        "inlineSources": true
     },
     "include": [
         "src/*"
