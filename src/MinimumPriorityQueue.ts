@@ -13,7 +13,6 @@ export class MinimumPriorityQueue<T> {
         let newNode = new Node(priority, value);
         this.valueToNode.set(value, newNode);
         this.roots.push(newNode);
-        newNode.parent = null;
 
         if (!this.min || newNode.key < this.min.key)
             this.min = newNode;
@@ -118,6 +117,22 @@ export class MinimumPriorityQueue<T> {
             }
         }
     }
+
+    nodeCount(): number {
+        function nodeCountInner(node: Node<T>) {
+            let sum = 1;
+            for (let c of node.children)
+                sum += nodeCountInner(c);
+            return sum;
+        }
+
+        let sum = 0;
+        for (let c of this.roots) {
+            sum += nodeCountInner(c);
+        }
+
+        return sum;
+    }
 }
 
 class Node<T> {
@@ -132,5 +147,6 @@ class Node<T> {
         this.value = value;
         this.children = [];
         this.marked = false;
+        this.parent = null;
     }
 }

@@ -364,10 +364,14 @@ function dijkstra(graph: Iterable<Hub>, source: Hub): Map<Hub, Hub> {
     }
     minPathCost.set(source, 0);
     candidateHubs.decreaseKey(source, 0);
+
+    console.log(candidateHubs.nodeCount())
     
     while (!candidateHubs.empty()) {
         const closestHub = candidateHubs.popMinimum();
-        
+        let count = candidateHubs.nodeCount();
+        console.log(count);
+
         for (let [hub, pipe] of closestHub.neighbors) {
             const currentBestCost = minPathCost.get(closestHub) + pipe.cost;
             const prevBestCost = minPathCost.get(hub);
