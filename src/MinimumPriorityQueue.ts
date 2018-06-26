@@ -58,7 +58,6 @@ export class MinimumPriorityQueue<T> {
         oldMin.parent = null;
         let i = this.roots.indexOf(oldMin);
         this.roots.splice(i, 1);
-        this.min = null;
         this.valueToNode.delete(oldMin.value);
 
         // merge it's children into root
@@ -81,6 +80,7 @@ export class MinimumPriorityQueue<T> {
 
     private updateMin() {
         // update min
+        this.min = null;
         for (let n of this.roots) {
             if (!this.min || n.key < this.min.key)
                 this.min = n;
