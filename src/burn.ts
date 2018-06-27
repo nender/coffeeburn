@@ -1,7 +1,5 @@
 import Router from "worker-loader!./router";
-
-// Config
-const LOGGING = false;
+import { weightLength, weightTraffic } from "./weightFunctions";
 
 let config = {
     trafficWeight: "linear",
@@ -20,11 +18,6 @@ let frameCount = 0;
 let Scene: Scene = null;
 let hubLookup: Map<number, Hub> = null;
 
-function log(str: string): void {
-    if (LOGGING)
-        console.log(str);
-}
-
 let getId = (function() {
     let id = 0;
     return function getId() { return id += 1 };
@@ -38,42 +31,6 @@ function randomSelection<T>(target: Iterable<T>): T {
             result = curr;
     }
     return result;
-}
-
-export function weightTraffic(w: number, mode: string): number {
-    switch (mode) {
-        case "none":
-            return 1;
-        case "linear":
-            return w;
-        case "sqrt":
-            return Math.sqrt(w);
-        case "square":
-            return w ** 2;
-        case "exp":
-            return Math.min(1e6, Math.exp(w / 3));
-        case "log":
-            return Math.log(w) + 1;
-        case "bell":
-            let aw = w / 3 - 2;
-            return Math.max(0.01, Math.exp(aw - aw ** 2 / 2) * 25)
-    }
-}
-
-export function weightLength(l: number, mode: string): number {
-    switch (mode) {
-        case "linear":
-            return Math.sqrt(l);
-        case "sqrt":
-            return l ** 0.25 * 5;
-        case "square":
-            return l / 25;
-        case "exp":
-            // yes this seems nuts, I'm just copying reference implementation for now
-            return Math.min(1e6, Math.exp(Math.sqrt(l) / 10) / 3);
-        case "log":
-            return Math.max(1, (Math.log(l) / 2 + 1) * 25);
-    }
 }
 
 // Data Types
@@ -151,8 +108,6 @@ class Pipe {
         if (!(destination === this.ends[0] || destination === this.ends[1]))
             throw "Requested destination not available";
             
-        log(`P${p.id} received by ${this.toString()}`);
-
         p.TAToB = destination === this.ends[1];
         p.TProgress = 0;
         p.TSpeed = Math.sqrt(this.traffic() / this.distance()) * 0.25;
@@ -177,12 +132,10 @@ class Pipe {
         for (let packet of delivered) {
             this.inflight.delete(packet);
             if (packet.TAToB) {
-                log(`${packet.toString()} handed off to ${this.ends[1].toString()}`)
                 this.ends[1].receive(packet);
             }
             else
             {
-                log(`${packet.toString()} handed off to ${this.ends[0].toString()}`)
                 this.ends[0].receive(packet);
             }
         }
@@ -218,7 +171,6 @@ export class Hub {
                 let isPOD = true;
                 p = new Packet(target, isPOD);
             } else {
-                log(`P${p.id} delivered to ${this.id}!`);
                 return;
             }
         }
