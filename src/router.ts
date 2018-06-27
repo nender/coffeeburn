@@ -1,14 +1,14 @@
-import { Hub } from './burn.js';
+import { Hub, RouteInfo } from './burn.js';
 
 const ctx: Worker = self as any;
 
 ctx.onmessage = function(message) {
-    let hubs = message.data as Iterable<Hub>;
-    let nav: Map<Hub, Map<Hub, Hub>>  = new Map();
+    let hubs = message.data as Map<number, Hub>;
+    let nav: RouteInfo = new Map();
 
-    for (let h of hubs) {
+    for (let h of hubs.values()) {
         const subnav = dijkstra(hubs, h);
-        nav.set(h, subnav);
+        nav.set(h.id, subnav);
     }
 
     ctx.postMessage(nav);
@@ -32,18 +32,18 @@ function popMinDist(hubs: Set<Hub>, costLookup: Map<Hub, number>): Hub {
     return hub;
 }
 
-function dijkstra(graph: Iterable<Hub>, source: Hub): Map<Hub, Hub> {
+function dijkstra(graph: Map<number, Hub>, source: Hub): Map<number, number | null> {
     
     /** set of all verticies not yet considered by the algorithm */
     const candidateHubs = new Set<Hub>();
     /** Map of Hub -> shortest path so far from source to Hub  */
     const minPathCost = new Map<Hub, number>();
     /** map of hub -> next hop on path to source */
-    const prev = new Map<Hub, Hub>();
+    const prev = new Map<number, number | null>();
 
-    for (let v of graph) {
+    for (let v of graph.values()) {
         minPathCost.set(v, Infinity);
-        prev.set(v, null);
+        prev.set(v.id, null);
         candidateHubs.add(v);
     }
     minPathCost.set(source, 0);
@@ -52,11 +52,11 @@ function dijkstra(graph: Iterable<Hub>, source: Hub): Map<Hub, Hub> {
         const closestHub = popMinDist(candidateHubs, minPathCost);
         
         for (let [hub, pipe] of closestHub.neighbors) {
-            const currentBestCost = minPathCost.get(closestHub) + pipe.cost;
+            const currentBestCost = minPathCost.get(closestHub) + pipe.cost();
             const prevBestCost = minPathCost.get(hub);
             if (currentBestCost < prevBestCost) {
                 minPathCost.set(hub, currentBestCost);
-                prev.set(hub, closestHub);
+                prev.set(hub.id, closestHub.id);
             }
         }
     }

@@ -14,9 +14,10 @@ let config = {
 }
 
 // Globals
-let nav: Map<Hub, Map<Hub, Hub>> = new Map();
+let nav: RouteInfo = new Map();
 let frameCount = 0;
 let Scene: Scene = null;
+let hubLookup: Map<number, Hub> = null;
 
 function log(str: string): void {
     if (LOGGING)
@@ -28,12 +29,24 @@ let getId = (function() {
     return function getId() { return id += 1 };
 }());
 
-function randomSelection<T>(target: T[]): T {
+/*function randomSelection<T>(target: T[]): T {
     const index = Math.floor(Math.random() * target.length);
     return target[index];
+}*/
+
+function randomSelection<T>(target: Iterable<T>): T {
+    let result = null;
+    let count = 0;
+    for (let curr of target) {
+        if (Math.random() < 1/++count)
+            result = curr;
+    }
+    return result;
 }
 
 // Data Types
+export type RouteInfo = Map<number, Map<number, number | null>>;
+
 class Packet {
     readonly id: number;
     readonly target: Hub;
@@ -79,10 +92,10 @@ class Pipe {
     
     decrementWeight() : void {
         // this formula stolen verbatim from chemicalburn,
-        this._weight = ((this.weight - 1) * 0.99) + 1;
+        this._weight = ((this.weight() - 1) * 0.99) + 1;
     }
 
-    get weight(): number {
+    weight(): number {
         let w = this._weight;
         switch (config.trafficWeight) {
             case "none":
@@ -103,7 +116,7 @@ class Pipe {
         }
     }
 
-    get length(): number {
+    length(): number {
         let l = this._length;
         switch (config.distanceWeight) {
             case "linear":
@@ -120,11 +133,11 @@ class Pipe {
         }
     }
     
-    get cost(): number {
+    cost(): number {
         if (this.ends[0].isDead || this.ends[1].isDead)
             return Number.MAX_VALUE;
         else
-            return this.length / this.weight;
+            return this.length() / this.weight();
     }
     
     receive(p: Packet, destination: Hub): void {
@@ -135,7 +148,7 @@ class Pipe {
 
         p.TAToB = destination === this.ends[1];
         p.TProgress = 0;
-        p.TSpeed = Math.sqrt(this.weight / this.length) * 0.25;
+        p.TSpeed = Math.sqrt(this.weight() / this.length()) * 0.25;
         this.inflight.add(p);
         this.incrementWeight();
     }
@@ -193,8 +206,8 @@ export class Hub {
             if (p.isPOD) {
                 let target: Hub;
                 do {
-                    target = randomSelection(Scene[0]);
-                } while (target.isDead || !nav.has(target))
+                    target = randomSelection(Scene[0].values());
+                } while (target.isDead || !nav.has(target.id))
                 let isPOD = true;
                 p = new Packet(target, isPOD);
             } else {
@@ -206,7 +219,7 @@ export class Hub {
         if (this.neighbors.size === 0)
             throw "No links";
             
-        const nextHop = nav.get(p.target).get(this);
+        const nextHop = hubLookup.get(nav.get(p.target.id).get(this.id));
         let target = this.neighbors.get(nextHop);
 
         if (target !== undefined)
@@ -217,9 +230,9 @@ export class Hub {
 
 // Program
 
-type Scene = [Hub[], Pipe[]]
+type Scene = [Map<number, Hub>, Pipe[]]
 
-function generateHub(hubs: Hub[], pipes: Pipe[], width, height): void {
+function generateHub(hubs: Map<number, Hub>, pipes: Pipe[], width, height): void {
     function addNeighbor(a: Hub, b: Hub): void {
         if (a.neighbors.has(b))
             return;
@@ -233,15 +246,15 @@ function generateHub(hubs: Hub[], pipes: Pipe[], width, height): void {
     let x = Math.floor(Math.random() * width);
     let y = Math.floor(Math.random() * height);
     let newHub = new Hub(x, y);
-    for (let x of hubs) {
+    for (let x of hubs.values()) {
         addNeighbor(x, newHub);
         addNeighbor(newHub, x);
     }
-    hubs.push(newHub);
+    hubs.set(newHub.id, newHub);
 }
 
 function generateScene(numHubs: number, width: number, height: number): Scene {
-    const hubs: Hub[] = [];
+    const hubs: Map<number, Hub> = new Map();
     const pipes: Pipe[] = [];
     
     for (let i = 0; i < numHubs; i++) {
@@ -278,7 +291,7 @@ function render(ctx: CanvasRenderingContext2D, scene: Scene, height: number, wid
     const [hubs, pipes] = scene;
     
     for (let p of pipes) {
-        let lineWidth = Math.min(6, (p.weight - 1) / 24)
+        let lineWidth = Math.min(6, (p.weight() - 1) / 24)
         let [x1, y1] = p.ends[0].position;
         let [x2, y2] = p.ends[1].position;
 
@@ -318,7 +331,7 @@ function render(ctx: CanvasRenderingContext2D, scene: Scene, height: number, wid
     }
     
     const hubsize = 7;
-    for (let h of hubs) {
+    for (let h of hubs.values()) {
         if (h.isDead)
             ctx.fillStyle = "red";
         else
@@ -355,6 +368,7 @@ function main() {
 
     Scene = generateScene(config.nodeCount, width, height);
     const [hubs, pipes] = Scene;
+    hubLookup = hubs;
     
     let started = false;
     let requestRefresh = false;
@@ -365,7 +379,7 @@ function main() {
     function renderStep() {
         if (frameCount == 0 && config.packetOfDeath) {
             let isPOD = true;
-            randomSelection(hubs).receive(new Packet(randomSelection(hubs), isPOD));
+            randomSelection(hubs.values()).receive(new Packet(randomSelection(hubs.values()), isPOD));
         }
 
         render(ctx, Scene, height, width);
@@ -376,8 +390,7 @@ function main() {
                 toRemove.splice(i, 1);
                 i -= 1;
 
-                let pos = hubs.indexOf(h);
-                hubs.splice(pos, 1);
+                hubs.delete(h.id);
 
                 for (let [n, p] of h.neighbors) {
                     h.neighbors.delete(n);
@@ -392,29 +405,29 @@ function main() {
         for (let p of pipes)
             p.step();
 
-        for (let h of hubs) {
+        for (let h of hubs.values()) {
             // test nav to make sure we only route to and from packets which we
             // have routing info on
-            if (h.isDead || !nav.has(h))
+            if (h.isDead || !nav.has(h.id))
                 continue;
 
             if (Math.random() < config.packetSpawnChance) {
                 let target: Hub;
                 do {
-                    target = randomSelection(hubs);
-                } while (target.isDead || !nav.has(target))
+                    target = randomSelection(hubs.values());
+                } while (target.isDead || !nav.has(target.id))
                 h.receive(new Packet(target));
             }
         }
 
         if (config.addRemoveNodes) {
-            let popDelta = (config.nodeCount - Scene[0].length) / config.nodeCount;
+            let popDelta = (config.nodeCount - Scene[0].size) / config.nodeCount;
             let roll = Math.random();
             let addChance = config.addRemoveChance / 2;
             if (roll < addChance + addChance * popDelta) {
                 generateHub(Scene[0], Scene[1], width, height)
             } else if (roll < config.addRemoveChance) {
-                let hub = randomSelection(hubs);
+                let hub = randomSelection(hubs.values());
                 hub.isDead = true;
                 toRemove.push([hub, frameCount]);
             }
