@@ -455,8 +455,10 @@ function main() {
         nav = e.data;
         requestRefresh = true;
 
-        if (!started)
+        if (!started) {
+            started = true;
             renderStep();
+        }
     }
 
     router.postMessage([hubs, config]);
