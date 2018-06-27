@@ -1,10 +1,14 @@
-import { Hub, RouteInfo } from './burn.js';
+import { Hub, RouteInfo, weightLength, weightTraffic } from './burn.js';
 
 const ctx: Worker = self as any;
+let config: any = null;
 
 ctx.onmessage = function(message) {
-    let hubs = message.data as Map<number, Hub>;
     let nav: RouteInfo = new Map();
+
+    let [hubs, cfg] = message.data as [Map<number, Hub>, any];
+    if (cfg)
+        config = cfg;
 
     for (let h of hubs.values()) {
         const subnav = dijkstra(hubs, h);
@@ -52,7 +56,16 @@ function dijkstra(graph: Map<number, Hub>, source: Hub): Map<number, number | nu
         const closestHub = popMinDist(candidateHubs, minPathCost);
         
         for (let [hub, pipe] of closestHub.neighbors) {
-            const currentBestCost = minPathCost.get(closestHub) + pipe.cost();
+            let pipeCost: number = null;
+            if (pipe.ends[0].isDead || pipe.ends[1].isDead)
+                pipeCost = Number.MAX_VALUE;
+            else {
+                let [d, dmode] = [pipe._length, config.distanceWeight]
+                let [t, tmode] = [pipe._weight, config.trafficWeight]
+                pipeCost = weightLength(d, dmode) / weightTraffic(t, tmode);
+            }
+
+            const currentBestCost = minPathCost.get(closestHub) + pipeCost;
             const prevBestCost = minPathCost.get(hub);
             if (currentBestCost < prevBestCost) {
                 minPathCost.set(hub, currentBestCost);

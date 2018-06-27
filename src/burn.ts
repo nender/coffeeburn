@@ -44,6 +44,42 @@ function randomSelection<T>(target: Iterable<T>): T {
     return result;
 }
 
+export function weightTraffic(w: number, mode: string): number {
+    switch (mode) {
+        case "none":
+            return 1;
+        case "linear":
+            return w;
+        case "sqrt":
+            return Math.sqrt(w);
+        case "square":
+            return w ** 2;
+        case "exp":
+            return Math.min(1e6, Math.exp(w / 3));
+        case "log":
+            return Math.log(w) + 1;
+        case "bell":
+            let aw = w / 3 - 2;
+            return Math.max(0.01, Math.exp(aw - aw ** 2 / 2) * 25)
+    }
+}
+
+export function weightLength(l: number, mode: string): number {
+    switch (mode) {
+        case "linear":
+            return Math.sqrt(l);
+        case "sqrt":
+            return l ** 0.25 * 5;
+        case "square":
+            return l / 25;
+        case "exp":
+            // yes this seems nuts, I'm just copying reference implementation for now
+            return Math.min(1e6, Math.exp(Math.sqrt(l) / 10) / 3);
+        case "log":
+            return Math.max(1, (Math.log(l) / 2 + 1) * 25);
+    }
+}
+
 // Data Types
 export type RouteInfo = Map<number, Map<number, number | null>>;
 
@@ -72,9 +108,9 @@ class Packet {
 class Pipe {
     readonly ends: [Hub, Hub];
     readonly inflight: Set<Packet>;
-    private _weight: number;
+    _weight: number;
     /** Note that _length is in units squared */
-    private _length: number;
+    _length: number;
 
     constructor(a: Hub, b: Hub) {
         this.ends = [a, b];
@@ -92,52 +128,24 @@ class Pipe {
     
     decrementWeight() : void {
         // this formula stolen verbatim from chemicalburn,
-        this._weight = ((this.weight() - 1) * 0.99) + 1;
+        this._weight = ((this._weight - 1) * 0.99) + 1;
     }
 
-    weight(): number {
+    traffic(): number {
         let w = this._weight;
-        switch (config.trafficWeight) {
-            case "none":
-                return 1;
-            case "linear":
-                return w;
-            case "sqrt":
-                return Math.sqrt(w);
-            case "square":
-                return w**2;
-            case "exp":
-                return Math.min(1e6, Math.exp(w / 3));
-            case "log":
-                return Math.log(w) + 1;
-            case "bell":
-                let aw = w / 3 - 2;
-                return Math.max(0.01, Math.exp(aw - aw**2 / 2) * 25) 
-        }
+        return weightTraffic(w, config.trafficWeight);
     }
 
-    length(): number {
+    distance(): number {
         let l = this._length;
-        switch (config.distanceWeight) {
-            case "linear":
-                return Math.sqrt(l);
-            case "sqrt":
-                return l**0.25 * 5;
-            case "square":
-                return l / 25;
-            case "exp":
-                // yes this seems nuts, I'm just copying reference implementation for now
-                return Math.min(1e6, Math.exp(Math.sqrt(l) / 10) / 3);
-            case "log":
-                return Math.max(1, (Math.log(l) / 2 + 1) * 25);
-        }
+        return weightLength(l, config.distanceWeight);
     }
     
     cost(): number {
         if (this.ends[0].isDead || this.ends[1].isDead)
             return Number.MAX_VALUE;
         else
-            return this.length() / this.weight();
+            return this.distance() / this.traffic();
     }
     
     receive(p: Packet, destination: Hub): void {
@@ -148,7 +156,7 @@ class Pipe {
 
         p.TAToB = destination === this.ends[1];
         p.TProgress = 0;
-        p.TSpeed = Math.sqrt(this.weight() / this.length()) * 0.25;
+        p.TSpeed = Math.sqrt(this.traffic() / this.distance()) * 0.25;
         this.inflight.add(p);
         this.incrementWeight();
     }
@@ -291,7 +299,7 @@ function render(ctx: CanvasRenderingContext2D, scene: Scene, height: number, wid
     const [hubs, pipes] = scene;
     
     for (let p of pipes) {
-        let lineWidth = Math.min(6, (p.weight() - 1) / 24)
+        let lineWidth = Math.min(6, (p.traffic() - 1) / 24)
         let [x1, y1] = p.ends[0].position;
         let [x2, y2] = p.ends[1].position;
 
@@ -434,7 +442,7 @@ function main() {
         }
 
         if (requestRefresh) {
-            router.postMessage(hubs);
+            router.postMessage([hubs, null]);
             requestRefresh = false;
         }
 
@@ -451,7 +459,7 @@ function main() {
             renderStep();
     }
 
-    router.postMessage(hubs);
+    router.postMessage([hubs, config]);
     
 }
 
