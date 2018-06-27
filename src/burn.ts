@@ -123,6 +123,9 @@ class Pipe {
     }
     
     incrementWeight(): void {
+        if (this.ends[0].isDead || this.ends[1].isDead)
+            return;
+
         this._weight += 1;
     }
     
@@ -223,7 +226,7 @@ export class Hub {
                 return;
             }
         }
-            
+
         if (this.neighbors.size === 0)
             throw "No links";
             
