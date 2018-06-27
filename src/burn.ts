@@ -17,6 +17,7 @@ let nav: RouteInfo = new Map();
 let frameCount = 0;
 let Scene: Scene = null;
 let hubLookup: Map<number, Hub> = null;
+let milisPerFrame = 0;
 
 let getId = (function() {
     let id = 0;
@@ -299,6 +300,9 @@ function render(ctx: CanvasRenderingContext2D, scene: Scene, height: number, wid
         let [x, y] = h.position;
         ctx.fillRect(x - (hubsize/2), y - (hubsize/2), hubsize, hubsize);
     }
+
+    ctx.fillStyle = "white";
+    ctx.fillText(Math.round(1000/milisPerFrame).toString(), 0, 8);
 }
 
 function main() {
@@ -324,6 +328,7 @@ function main() {
     canvas.width = width;
 
     const ctx = canvas.getContext('2d');
+    ctx.font = '8px monospace';
 
     Scene = generateScene(config.nodeCount, width, height);
     const [hubs, pipes] = Scene;
@@ -331,6 +336,7 @@ function main() {
     
     let started = false;
     let requestRefresh = false;
+    let lastFrame = performance.now();
     
     render(ctx, Scene, height, width);
 
@@ -399,6 +405,9 @@ function main() {
 
         window.requestAnimationFrame(renderStep);
         frameCount += 1;
+        let frameTime = performance.now();
+        milisPerFrame = (milisPerFrame * 19 + (frameTime - lastFrame)) / 20;
+        lastFrame = frameTime;
     }
 
     let router = new Router();
