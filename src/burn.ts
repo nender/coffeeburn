@@ -1,3 +1,4 @@
+import Router from "worker-loader!./router";
 
 // Config
 const LOGGING = false;
@@ -28,11 +29,6 @@ let getId = (function() {
     let id = 0;
     return function getId() { return id += 1 };
 }());
-
-/*function randomSelection<T>(target: T[]): T {
-    const index = Math.floor(Math.random() * target.length);
-    return target[index];
-}*/
 
 function randomSelection<T>(target: Iterable<T>): T {
     let result = null;
@@ -453,7 +449,7 @@ function main() {
         frameCount += 1;
     }
 
-    let router = new Worker('router.js');
+    let router = new Router();
     router.onmessage = function(e) {
         nav = e.data;
         requestRefresh = true;

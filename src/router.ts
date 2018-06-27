@@ -1,5 +1,4 @@
-import { Hub, RouteInfo } from './burn.js';
-
+import { Hub, RouteInfo } from './burn';
 
 // TODO: use webpack to properly import these from burn
 function weightTraffic(w: number, mode: string): number {
