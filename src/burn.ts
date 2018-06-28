@@ -18,6 +18,7 @@ let frameCount = 0;
 let Scene: Scene = null;
 let hubLookup: Map<number, Hub> = null;
 let milisPerFrame = 0;
+let packets: Set<Packet> = new Set();
 
 let getId = (function() {
     let id = 0;
@@ -129,13 +130,10 @@ class Pipe {
         
         for (let packet of delivered) {
             this.inflight.delete(packet);
-            if (packet.TAToB) {
+            if (packet.TAToB)
                 this.ends[1].receive(packet);
-            }
             else
-            {
                 this.ends[0].receive(packet);
-            }
         }
         
         this.decrementWeight();
@@ -168,6 +166,7 @@ export class Hub {
                 } while (target.isDead || !nav.has(target.id))
                 p.target = target;
             } else {
+                packets.delete(p);
                 return;
             }
         }
@@ -185,7 +184,6 @@ export class Hub {
 
 
 // Program
-
 type Scene = [Map<number, Hub>, Pipe[]]
 
 function generateHub(hubs: Map<number, Hub>, pipes: Pipe[], width, height): void {
@@ -360,6 +358,7 @@ function main() {
         // generate package of death
         if (frameCount == 0 && config.packetOfDeath) {
             packageOfDeath = new Packet(randomSelection(hubs.values()), true);
+            packets.add(packageOfDeath);
             randomSelection(hubs.values()).receive(packageOfDeath);
         }
 
@@ -404,7 +403,9 @@ function main() {
                 do {
                     target = randomSelection(hubs.values());
                 } while (target.isDead || !nav.has(target.id))
-                h.receive(new Packet(target));
+                let p = new Packet(target);
+                packets.add(p);
+                h.receive(p);
             }
         }
 
