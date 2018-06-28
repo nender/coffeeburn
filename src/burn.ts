@@ -247,18 +247,21 @@ function render(ctx: CanvasRenderingContext2D, scene: Scene, height: number, wid
     
     const [hubs, pipes] = scene;
     
-    for (let p of pipes) {
-        let lineWidth = Math.min(6, (p.traffic() - 1) / 24)
-        let [x1, y1] = p.ends[0].position;
-        let [x2, y2] = p.ends[1].position;
+    for (let pipe of pipes) {
+        let lineWidth = Math.min(6, (pipe.traffic() - 1) / 24)
+        let p1 = pipe.ends[0].position;
+        let p2 = pipe.ends[1].position;
 
         if (lineWidth >= 1/255) {
-            if (p.ends[0].isDead || p.ends[1].isDead)
+            if (pipe.ends[0].isDead || pipe.ends[1].isDead)
                 ctx.strokeStyle = "red";
             else 
                 ctx.strokeStyle = "white";
 
             ctx.lineWidth = lineWidth;
+
+            let [x1, y1] = p1;
+            let [x2, y2] = p2;
 
             ctx.beginPath();
             ctx.moveTo(x1, y1);
@@ -266,23 +269,37 @@ function render(ctx: CanvasRenderingContext2D, scene: Scene, height: number, wid
             ctx.stroke();
         }
 
-        const packetSize = 4;
-        for (let packet of p.inflight.keys()) {
-            ctx.fillStyle = intToColor(packet.target.id);
+
+        for (let packet of pipe.inflight.keys()) {
+            function drawPacket(p1: [number, number], p2: [number, number]) {
+                let [x1, y1] = p1;
+                let dx = (p2[0] - p1[0]) * packet.TProgress;
+                let dy = (p2[1] - p1[1]) * packet.TProgress;
+                if (packet.isPOD) {
+                    const packetSize = 8;
+                    const r = packetSize / 2;
+                    ctx.fillStyle = "red";
+                    ctx.beginPath();
+                    ctx.moveTo(x1+ dx, y1 + dy - r);
+                    ctx.lineTo(x1 + dx + r, y1 + dy + r);
+                    ctx.lineTo(x1 + dx - r, y1 + dy + r);
+                    ctx.fill();
+                } else {
+                    const packetSize = 4;
+                    const r = packetSize / 2;
+                    ctx.fillStyle = intToColor(packet.target.id);
+                    ctx.fillRect((x1 + dx) - r,
+                        (y1 + dy) - r,
+                        packetSize, packetSize);
+                }
+            }
+
             const aToB = packet.TAToB;
             const progress = packet.TProgress;
             if (aToB) {
-                let dx = (x2 - x1) * progress;
-                let dy = (y2 - y1) * progress;
-                ctx.fillRect((x1+dx) - packetSize/2,
-                    (y1+dy) - packetSize/2,
-                    packetSize, packetSize);
+                drawPacket(p1, p2);
             } else {
-                let dx = (x1 - x2) * progress;
-                let dy = (y1 - y2) * progress;
-                ctx.fillRect((x2+dx) - packetSize/2,
-                    (y2+dy) - packetSize/2,
-                    packetSize, packetSize);
+                drawPacket(p2, p1);
             }
         }
     }
