@@ -58,9 +58,9 @@ function dijkstra(graph: Map<number, Hub>, source: Hub): Map<number, number | nu
         
         for (let [hub, pipe] of closestHub.neighbors) {
             let pipeCost: number = null;
-            if (pipe.ends[0].isDead || pipe.ends[1].isDead)
+            if (closestHub.isDead) {
                 pipeCost = Number.MAX_VALUE;
-            else {
+            } else {
                 let [l, lmode] = [pipe._length, config.distanceWeight]
                 let [w, wmode] = [pipe._weight, config.trafficWeight]
                 pipeCost = weightLength(l, lmode) / weightTraffic(w, wmode);
