@@ -9,14 +9,12 @@ let config = {
     addRemoveNodes: true,
     addRemoveChance: 1 / 100,
     packetOfDeath: false,
-    deadNodeTTL: 10 * 60
 }
 
 // Globals
 let nav: RouteInfo = new Map();
 let frameCount = 0;
 let Scene: Scene = null;
-let hubLookup: Map<number, Hub> = null;
 let milisPerFrame = 0;
 let packets: Set<Packet> = new Set();
 
@@ -178,7 +176,7 @@ export class Hub {
         if (this.neighbors.size === 0)
             throw "No links";
             
-        const nextHop = hubLookup.get(nav.get(p.target.id).get(this.id));
+        const nextHop = Scene[0].get(nav.get(p.target.id).get(this.id));
         let target = this.neighbors.get(nextHop);
 
         if (target !== undefined)
@@ -347,7 +345,6 @@ function main() {
 
     Scene = generateScene(config.nodeCount, width, height);
     const [hubs, pipes] = Scene;
-    hubLookup = hubs;
     let packageOfDeath: Packet = null;
     let killList: number[] = [];
     
@@ -368,8 +365,18 @@ function main() {
 
         // remove dead nodes
         for (let [hid, t] of walkingDead) {
-            if (frameCount - t > config.deadNodeTTL) {
-                let h = hubLookup.get(hid);
+            let hub = hubs.get(hid);
+
+            let noInflight = true;
+            for (let [, p] of hub.neighbors) {
+                if (p.inflight.size > 0) {
+                    noInflight = false;
+                    break;
+                }
+            }
+
+            if (noInflight) {
+                let h = hubs.get(hid);
                 killList.push(hid);
                 hubs.delete(hid);
 
@@ -422,6 +429,10 @@ function main() {
             } else if (roll < config.addRemoveChance) {
                 let hub = randomLiveSelection(hubs.values());
                 hub.isDead = true;
+                let surrogate = randomLiveSelection(hubs.values());
+                for (let p of packets)
+                    if (p.target == hub)
+                        p.target = surrogate;
             }
         }
 
