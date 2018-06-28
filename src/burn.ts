@@ -330,6 +330,7 @@ function main() {
     Scene = generateScene(config.nodeCount, width, height);
     const [hubs, pipes] = Scene;
     hubLookup = hubs;
+    let packageOfDeath: Packet = null;
     
     let started = false;
     let requestRefresh = false;
@@ -339,13 +340,13 @@ function main() {
 
     let toRemove: [Hub, number][] = [];
     function renderStep() {
+        // generate package of death
         if (frameCount == 0 && config.packetOfDeath) {
-            let isPOD = true;
-            randomSelection(hubs.values()).receive(new Packet(randomSelection(hubs.values()), isPOD));
+            packageOfDeath = new Packet(randomSelection(hubs.values()), true);
+            randomSelection(hubs.values()).receive(packageOfDeath);
         }
 
-        render(ctx, Scene, height, width);
-
+        // remove dead nodes
         for (let i = 0; i < toRemove.length; i++) {
             let [h, t] = toRemove[i];
             if (frameCount - t > config.deadNodeTTL) {
@@ -364,9 +365,11 @@ function main() {
             }
         }
 
+        // advance all packets
         for (let p of pipes)
             p.step();
 
+        // add new packages
         for (let h of hubs.values()) {
             // test nav to make sure we only route to and from packets which we
             // have routing info on
@@ -382,7 +385,10 @@ function main() {
             }
         }
 
+        // add and remove nodes
         if (config.addRemoveNodes) {
+            if (packageOfDeath)
+                packageOfDeath.speed = ((hubs.size - toRemove.length) / config.nodeCount) ** 2;
             let popDelta = (config.nodeCount - Scene[0].size) / config.nodeCount;
             let roll = Math.random();
             let addChance = config.addRemoveChance / 2;
@@ -400,6 +406,7 @@ function main() {
             requestRefresh = false;
         }
 
+        render(ctx, Scene, height, width);
         window.requestAnimationFrame(renderStep);
         frameCount += 1;
         let frameTime = performance.now();
