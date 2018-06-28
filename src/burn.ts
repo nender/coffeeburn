@@ -161,8 +161,13 @@ export class Hub {
     }
     
     receive(p: Packet): void {
-        if (p.isPOD)
+        if (p.isPOD) {
             this.isDead = true;
+            let surrogate = randomLiveSelection(Scene[0].values());
+            for (let p of packets)
+                if (p.target == this)
+                    p.target = surrogate;
+        }
 
         if (p.target === this) {
             if (p.isPOD) {
