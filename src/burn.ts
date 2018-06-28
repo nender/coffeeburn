@@ -331,6 +331,7 @@ function main() {
     const [hubs, pipes] = Scene;
     hubLookup = hubs;
     let packageOfDeath: Packet = null;
+    let killList: number[] = [];
     
     let started = false;
     let requestRefresh = false;
@@ -338,7 +339,7 @@ function main() {
     
     render(ctx, Scene, height, width);
 
-    let toRemove: [Hub, number][] = [];
+    let walkingDead: Map<number, number> = new Map();
     function renderStep() {
         // generate package of death
         if (frameCount == 0 && config.packetOfDeath) {
@@ -347,13 +348,11 @@ function main() {
         }
 
         // remove dead nodes
-        for (let i = 0; i < toRemove.length; i++) {
-            let [h, t] = toRemove[i];
+        for (let [hid, t] of walkingDead) {
             if (frameCount - t > config.deadNodeTTL) {
-                toRemove.splice(i, 1);
-                i -= 1;
-
-                hubs.delete(h.id);
+                let h = hubLookup.get(hid);
+                killList.push(hid);
+                hubs.delete(hid);
 
                 for (let [n, p] of h.neighbors) {
                     h.neighbors.delete(n);
@@ -364,6 +363,9 @@ function main() {
                 }
             }
         }
+        for (let k of killList)
+            walkingDead.delete(k);
+        killList.length = 0;
 
         // advance all packets
         for (let p of pipes)
@@ -371,9 +373,14 @@ function main() {
 
         // add new packages
         for (let h of hubs.values()) {
+            if (h.isDead && !walkingDead.has(h.id)) {
+                walkingDead.set(h.id, frameCount);
+                continue;
+            }
+
             // test nav to make sure we only route to and from packets which we
             // have routing info on
-            if (h.isDead || !nav.has(h.id))
+            if (!nav.has(h.id))
                 continue;
 
             if (Math.random() < config.packetSpawnChance) {
@@ -388,16 +395,18 @@ function main() {
         // add and remove nodes
         if (config.addRemoveNodes) {
             if (packageOfDeath)
-                packageOfDeath.speed = ((hubs.size - toRemove.length) / config.nodeCount) ** 2;
+                packageOfDeath.speed = ((hubs.size - walkingDead.size) / config.nodeCount) ** 2;
             let popDelta = (config.nodeCount - Scene[0].size) / config.nodeCount;
             let roll = Math.random();
             let addChance = config.addRemoveChance / 2;
             if (roll < addChance + addChance * popDelta) {
                 generateHub(Scene[0], Scene[1], width, height)
             } else if (roll < config.addRemoveChance) {
-                let hub = randomSelection(hubs.values());
+                let hub: Hub = null;
+                do {
+                    hub = randomSelection(Scene[0].values());
+                } while (hub.isDead || !nav.has(hub.id))
                 hub.isDead = true;
-                toRemove.push([hub, frameCount]);
             }
         }
 
