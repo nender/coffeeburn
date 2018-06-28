@@ -25,14 +25,22 @@ let getId = (function() {
     return function getId() { return id += 1 };
 }());
 
-function randomSelection<T>(target: Iterable<T>): T {
+function randomSelection<T>(collection: Iterable<T>): T {
     let result = null;
     let count = 0;
-    for (let curr of target) {
+    for (let curr of collection) {
         if (Math.random() < 1/++count)
             result = curr;
     }
     return result;
+}
+
+function randomLiveSelection<T>(collection: Iterable<Hub>): Hub {
+    let target: Hub;
+    do {
+        target = randomSelection(Scene[0].values());
+    } while (target.isDead || !nav.has(target.id))
+    return target;
 }
 
 // Data Types
@@ -160,11 +168,7 @@ export class Hub {
 
         if (p.target === this) {
             if (p.isPOD) {
-                let target: Hub;
-                do {
-                    target = randomSelection(Scene[0].values());
-                } while (target.isDead || !nav.has(target.id))
-                p.target = target;
+                p.target = randomLiveSelection(Scene[0].values());
             } else {
                 packets.delete(p);
                 return;
@@ -399,10 +403,7 @@ function main() {
                 continue;
 
             if (Math.random() < config.packetSpawnChance) {
-                let target: Hub;
-                do {
-                    target = randomSelection(hubs.values());
-                } while (target.isDead || !nav.has(target.id))
+                let target = randomLiveSelection(hubs.values());
                 let p = new Packet(target);
                 packets.add(p);
                 h.receive(p);
@@ -419,10 +420,7 @@ function main() {
             if (roll < addChance + addChance * popDelta) {
                 generateHub(Scene[0], Scene[1], width, height)
             } else if (roll < config.addRemoveChance) {
-                let hub: Hub = null;
-                do {
-                    hub = randomSelection(Scene[0].values());
-                } while (hub.isDead || !nav.has(hub.id))
+                let hub = randomLiveSelection(hubs.values());
                 hub.isDead = true;
             }
         }
