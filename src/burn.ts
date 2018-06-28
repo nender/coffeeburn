@@ -41,21 +41,20 @@ class Packet {
     readonly id: number;
     readonly target: Hub;
     readonly isPOD: boolean;
+    speed: number;
     
     /** True if packet is currently travelling from A to B */
     TAToB: boolean;
     /** Float in the range 0<=x<1 indicating progress along current Pipe*/
     TProgress: number;
-    /** Number indicating the packet's speed along the current Pipe */
-    TSpeed: number;
     
     constructor(target: Hub, isPOD = false) {
         this.id = getId();
         this.target = target;
         this.isPOD = isPOD;
+        this.speed = (Math.random() * 1.5) + 0.5;
         this.TAToB = null;
         this.TProgress = null;
-        this.TSpeed = null;
     }
 }
 
@@ -111,18 +110,16 @@ class Pipe {
             
         p.TAToB = destination === this.ends[1];
         p.TProgress = 0;
-        p.TSpeed = Math.sqrt(this.traffic() / this.distance()) * 0.25;
         this.inflight.add(p);
         this.incrementWeight();
     }
-    
+
     step(): void {
         const delivered: Set<Packet> = new Set();
         // loop through all the inflight packets, updating their status and making note
         // of those which are complete;
         for (let packet of this.inflight) {
-            // todo: move weighting func to internal of weight property
-            const newProgress = packet.TProgress + packet.TSpeed;
+            const newProgress = packet.TProgress + packet.speed * this.traffic() / this.distance();
             
             if (newProgress < 1)
                 packet.TProgress = newProgress;
