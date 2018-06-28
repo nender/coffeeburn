@@ -399,8 +399,10 @@ function main() {
 
         // add new packages
         for (let h of hubs.values()) {
-            if (h.isDead && !walkingDead.has(h.id)) {
-                walkingDead.set(h.id, frameCount);
+            if (h.isDead) {
+                if (!walkingDead.has(h.id))
+                    walkingDead.set(h.id, frameCount);
+
                 continue;
             }
 
