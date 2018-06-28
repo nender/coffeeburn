@@ -39,8 +39,8 @@ export type RouteInfo = Map<number, Map<number, number | null>>;
 
 class Packet {
     readonly id: number;
-    readonly target: Hub;
     readonly isPOD: boolean;
+    target: Hub;
     speed: number;
     
     /** True if packet is currently travelling from A to B */
@@ -166,8 +166,7 @@ export class Hub {
                 do {
                     target = randomSelection(Scene[0].values());
                 } while (target.isDead || !nav.has(target.id))
-                let isPOD = true;
-                p = new Packet(target, isPOD);
+                p.target = target;
             } else {
                 return;
             }
