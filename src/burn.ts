@@ -33,11 +33,11 @@ function randomSelection<T>(collection: Iterable<T>): T {
     return result;
 }
 
-function randomLiveSelection<T>(collection: Iterable<Hub>): Hub {
+function randomLiveSelection<T>(collection: Map<number, Hub>): Hub {
     let target: Hub;
     do {
-        target = randomSelection(Scene[0].values());
-    } while (target.isDead || !nav.has(target.id))
+        target = randomSelection(collection.values());
+    } while (target.isDead || !nav.has(target.id) )
     return target;
 }
 
@@ -163,7 +163,7 @@ export class Hub {
     receive(p: Packet): void {
         if (p.isPOD) {
             this.isDead = true;
-            let surrogate = randomLiveSelection(Scene[0].values());
+            let surrogate = randomLiveSelection(Scene[0]);
             for (let p of packets)
                 if (p.target == this)
                     p.target = surrogate;
@@ -171,7 +171,7 @@ export class Hub {
 
         if (p.target === this) {
             if (p.isPOD) {
-                p.target = randomLiveSelection(Scene[0].values());
+                p.target = randomLiveSelection(Scene[0]);
             } else {
                 packets.delete(p);
                 return;
@@ -417,7 +417,7 @@ function main() {
                 continue;
 
             if (Math.random() < config.packetSpawnChance) {
-                let target = randomLiveSelection(hubs.values());
+                let target = randomLiveSelection(hubs);
                 let p = new Packet(target);
                 packets.add(p);
                 h.receive(p);
@@ -434,9 +434,9 @@ function main() {
             if (roll < addChance + addChance * popDelta) {
                 generateHub(Scene[0], Scene[1], width, height)
             } else if (roll < config.addRemoveChance) {
-                let hub = randomLiveSelection(hubs.values());
+                let hub = randomLiveSelection(hubs);
                 hub.isDead = true;
-                let surrogate = randomLiveSelection(hubs.values());
+                let surrogate = randomLiveSelection(hubs);
                 for (let p of packets)
                     if (p.target == hub)
                         p.target = surrogate;
