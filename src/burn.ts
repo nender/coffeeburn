@@ -15,7 +15,7 @@ let config = {
     nodeCount: 80,
     packetSpawnChance: 1 / 60,
     addRemoveNodes: true,
-    addRemoveChance: 1 / 100,
+    addRemoveChance: 1 / 45,
     packetOfDeath: true,
 }
 
@@ -301,7 +301,6 @@ function render(ctx: CanvasRenderingContext2D, scene: Scene, height: number, wid
             ctx.stroke();
         }
 
-
         for (let packet of pipe.inflight.keys()) {
             function drawPacket(p1: [number, number], p2: [number, number]) {
                 let [x1, y1] = p1;
@@ -464,21 +463,41 @@ function main() {
 
         // add and remove nodes
         if (config.addRemoveNodes) {
-            if (packageOfDeath)
+            // destroy nodes
+            if (packageOfDeath) {
                 packageOfDeath.speed = ((hubs.size - walkingDead.size) / config.nodeCount) ** 2;
-            let popDelta = (config.nodeCount - Scene[0].size) / config.nodeCount;
-            let roll = Math.random();
-            let addChance = config.addRemoveChance / 2;
-            if (roll < addChance + addChance * popDelta) {
-                generateHub(Scene[0], Scene[1], width, height)
-            } else if (roll < config.addRemoveChance) {
-                let hub = randomLiveSelection(hubs);
-                hub.isDead = true;
-                log(`[Main]: Killed Hub ${hub.id}`);
-                let surrogate = randomLiveSelection(hubs);
-                for (let p of packets)
-                    if (p.target === hub)
-                        p.target = surrogate;
+            }
+            else {
+                let nodeDiff = hubs.size - config.nodeCount + walkingDead.size;
+                let factor = 0;
+                if (nodeDiff <= 0) {
+                    factor = 1;
+                } else {
+                    factor = (config.nodeCount - nodeDiff)/ config.nodeCount;
+                }
+                factor = Math.max(factor, 0);
+
+                if (Math.floor(Math.random() * factor * 1/config.addRemoveChance) == 0 && hubs.size > 3) {
+                    let hub = randomLiveSelection(hubs);
+                    hub.isDead = true;
+                    let surrogate = randomLiveSelection(Scene[0]);
+                    for (let p of packets)
+                        if (p.target == this)
+                            p.target = surrogate;
+                }
+            }
+
+            // add nodes
+            let nodeDiff = config.nodeCount - hubs.size - walkingDead.size;
+            let factor = 0;
+            if (nodeDiff <= 0) {
+                factor = 1;
+            } else {
+                factor = (config.nodeCount - nodeDiff / config.nodeCount);
+            }
+            factor = Math.max(factor, 0);
+            if (Math.floor(Math.random() * factor * 1/config.addRemoveChance) == 0) {
+                generateHub(hubs, pipes, width, height);
             }
         }
 
