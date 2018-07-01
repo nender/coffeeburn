@@ -1,4 +1,5 @@
 const path = require('path');
+const webpack = require('webpack');
 
 module.exports = {
   entry: './src/burn.ts',
@@ -16,6 +17,11 @@ module.exports = {
   resolve: {
     extensions: [ '.tsx', '.ts', '.js' ]
   },
+  plugins: [
+    new webpack.DefinePlugin({
+      DEBUG: true
+    })
+  ],
   output: {
     filename: 'burn.js',
     path: path.resolve(__dirname, 'dist')

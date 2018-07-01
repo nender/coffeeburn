@@ -1,6 +1,13 @@
 import Router from "worker-loader!./router";
 import { weightLength, weightTraffic } from "./weightFunctions";
 
+declare var DEBUG: boolean;
+function log(msg: string) {
+    if (DEBUG) {
+        console.log(msg);
+    }
+}
+
 let config = {
     trafficWeight: "linear",
     distanceWeight: "square",
