@@ -15,7 +15,7 @@ let config = {
     nodeCount: 80,
     packetSpawnChance: 1 / 60,
     addRemoveNodes: true,
-    addRemoveChance: 1 / 45,
+    addRemoveChance: 45,
     packetOfDeath: true,
 }
 
@@ -477,7 +477,7 @@ function main() {
                 }
                 factor = Math.max(factor, 0);
 
-                if (Math.floor(Math.random() * factor * 1/config.addRemoveChance) == 0 && hubs.size > 3) {
+                if (Math.floor(Math.random() * factor * config.addRemoveChance) == 0 && hubs.size > 3) {
                     let hub = randomLiveSelection(hubs);
                     hub.isDead = true;
                     let surrogate = randomLiveSelection(Scene[0]);
@@ -496,7 +496,7 @@ function main() {
                 factor = (config.nodeCount - nodeDiff / config.nodeCount);
             }
             factor = Math.max(factor, 0);
-            if (Math.floor(Math.random() * factor * 1/config.addRemoveChance) == 0) {
+            if (Math.floor(Math.random() * factor * config.addRemoveChance) == 0) {
                 generateHub(hubs, pipes, width, height);
             }
         }
