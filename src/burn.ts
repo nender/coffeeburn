@@ -359,7 +359,7 @@ function main() {
             } catch (e) {
                 config[k] = params.get(k);
             }
-        } else {
+        } else if (["nodeCount", "addRemoveNodes", "packetOfDeath"].indexOf(k) !== -1) {
             params.set(k, config[k].toString());
         }
     }
