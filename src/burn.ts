@@ -363,7 +363,10 @@ function main() {
     Scene = generateScene(config.nodeCount, width, height);
     const [hubs, pipes] = Scene;
     let packageOfDeath: Packet = null;
-    let killList: number[] = [];
+
+    let killedThisFrame: Hub[] = [];
+    let noRoute: Set<Hub> = new Set();
+    let walkingDead: Map<Hub, number> = new Map();
     
     let started = false;
     let requestRefresh = false;
@@ -371,7 +374,6 @@ function main() {
     
     render(ctx, Scene, height, width);
 
-    let walkingDead: Map<number, number> = new Map();
     function renderStep() {
         // generate package of death
         if (frameCount == 0 && config.packetOfDeath) {
@@ -381,8 +383,7 @@ function main() {
         }
 
         // remove dead nodes
-        for (let [hid, t] of walkingDead) {
-            let hub = hubs.get(hid);
+        for (let [hub, t] of walkingDead) {
 
             let noInflight = true;
             for (let [, p] of hub.neighbors) {
@@ -392,10 +393,10 @@ function main() {
                 }
             }
 
-            if (noInflight) {
-                let h = hubs.get(hid);
-                killList.push(hid);
-                hubs.delete(hid);
+            if (noInflight && noRoute.has(hub)) {
+                let h = hubs.get(hub.id);
+                killedThisFrame.push(hub);
+                hubs.delete(hub.id);
 
                 for (let [n, p] of h.neighbors) {
                     h.neighbors.delete(n);
@@ -406,9 +407,9 @@ function main() {
                 }
             }
         }
-        for (let k of killList)
+        for (let k of killedThisFrame)
             walkingDead.delete(k);
-        killList.length = 0;
+        killedThisFrame.length = 0;
 
         // advance all packets
         for (let p of pipes)
@@ -417,8 +418,8 @@ function main() {
         // add new packages
         for (let h of hubs.values()) {
             if (h.isDead) {
-                if (!walkingDead.has(h.id))
-                    walkingDead.set(h.id, frameCount);
+                if (!walkingDead.has(h))
+                    walkingDead.set(h, frameCount);
 
                 continue;
             }
