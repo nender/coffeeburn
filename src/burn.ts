@@ -1,5 +1,5 @@
 import Router from "worker-loader!./router";
-import { weightLength, weightTraffic } from "./weightFunctions";
+import { weightTraffic } from "./weightFunctions";
 
 declare var DEBUG: boolean;
 function log(msg: string) {
@@ -77,7 +77,6 @@ class Pipe {
     readonly ends: [Hub, Hub];
     readonly inflight: Set<Packet>;
     _weight: number;
-    /** Note that _length is in units squared */
     _length: number;
 
     constructor(a: Hub, b: Hub) {
@@ -87,7 +86,25 @@ class Pipe {
         
         let dx = Math.abs(a.position[0] - b.position[0]);
         let dy = Math.abs(a.position[1] - b.position[1]);
-        this._length = dx**2+dy**2;
+        this._length = this.weightLength(dx**2+dy**2, config.distanceWeight);
+    }
+
+    weightLength(l: number, mode: string): number {
+        switch (mode) {
+            case "linear":
+                return Math.sqrt(l);
+            case "sqrt":
+                return l ** 0.25 * 5;
+            case "square":
+                return l / 25;
+            case "exp":
+                // yes this seems nuts, I'm just copying reference implementation for now
+                return Math.min(1e6, Math.exp(Math.sqrt(l) / 10) / 3);
+            case "log":
+                return Math.max(1, (Math.log(l) / 2 + 1) * 25);
+            default:
+                throw Error("Invalid mode");
+        }
     }
     
     incrementWeight(): void {
@@ -108,8 +125,7 @@ class Pipe {
     }
 
     distance(): number {
-        let l = this._length;
-        return weightLength(l, config.distanceWeight);
+        return this._length;
     }
     
     cost(): number {
@@ -292,7 +308,7 @@ function render(ctx: CanvasRenderingContext2D, scene: Scene, height: number, wid
                 let dx = (p2[0] - p1[0]) * packet.TProgress;
                 let dy = (p2[1] - p1[1]) * packet.TProgress;
                 if (packet.isPOD) {
-                    const packetSize = 8;
+                    const packetSize = 12;
                     const r = packetSize / 2;
                     ctx.fillStyle = "red";
                     ctx.beginPath();
