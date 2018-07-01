@@ -3,8 +3,9 @@ import { weightLength, weightTraffic } from "./weightFunctions";
 
 declare var DEBUG: boolean;
 function log(msg: string) {
+    let now = performance.now().toPrecision(4);
     if (DEBUG) {
-        console.log(msg);
+        console.log(now + ' ' + msg);
     }
 }
 
@@ -169,30 +170,33 @@ export class Hub {
     
     receive(p: Packet): void {
         if (p.isPOD) {
-            this.isDead = true;
-            let surrogate = randomLiveSelection(Scene[0]);
-            for (let p of packets)
-                if (p.target == this)
-                    p.target = surrogate;
-        }
-
-        if (p.target === this) {
-            if (p.isPOD) {
-                p.target = randomLiveSelection(Scene[0]);
-            } else {
-                packets.delete(p);
-                return;
+            if (!this.isDead) {
+                this.isDead = true;
+                log(`[Hub ${this.id}]: Killed by POD`);
+                let surrogate = randomLiveSelection(Scene[0]);
+                for (let p of packets)
+                    if (p.target == this)
+                        p.target = surrogate;
             }
+
+            if (p.target === this) {
+                p.target = randomLiveSelection(Scene[0]);
+                log(`[Hub ${this.id}]: Rerouting POD to ${p.target.id}`);
+            }
+
+        } else if (p.target === this) {
+            log(`[Hub ${this.id}]: Accepted packet ${p.id}`);
+            packets.delete(p);
+            return;
         }
 
         if (this.neighbors.size === 0)
             throw "No links";
-            
-        const nextHop = Scene[0].get(nav.get(p.target.id).get(this.id));
-        let target = this.neighbors.get(nextHop);
-
-        if (target !== undefined)
-            target.receive(p, nextHop);
+        const nexthopID = nav.get(p.target.id).get(this.id);
+        const nextHop = Scene[0].get(nexthopID);
+        let pipe = this.neighbors.get(nextHop);
+        pipe.receive(p, nextHop);
+        log(`[Hub ${this.id}]: Sent ${p.id} towards ${nextHop.id}`);
     }
 }
 
@@ -219,6 +223,7 @@ function generateHub(hubs: Map<number, Hub>, pipes: Pipe[], width, height): void
         addNeighbor(newHub, x);
     }
     hubs.set(newHub.id, newHub);
+    log(`[GenerateScene]: Added Hub ${newHub.id}`);
 }
 
 function generateScene(numHubs: number, width: number, height: number): Scene {
@@ -443,9 +448,10 @@ function main() {
             } else if (roll < config.addRemoveChance) {
                 let hub = randomLiveSelection(hubs);
                 hub.isDead = true;
+                log(`[Main]: Killed Hub ${hub.id}`);
                 let surrogate = randomLiveSelection(hubs);
                 for (let p of packets)
-                    if (p.target == hub)
+                    if (p.target === hub)
                         p.target = surrogate;
             }
         }
@@ -467,6 +473,7 @@ function main() {
     router.onmessage = function(e) {
         nav = e.data;
         requestRefresh = true;
+        log("[Router] Got new route info")
 
         if (!started) {
             started = true;
