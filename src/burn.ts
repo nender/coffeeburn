@@ -12,11 +12,11 @@ function log(msg: string) {
 let config = {
     trafficWeight: "linear",
     distanceWeight: "square",
-    nodeCount: 30,
+    nodeCount: 80,
     packetSpawnChance: 1 / 60,
     addRemoveNodes: true,
     addRemoveChance: 1 / 100,
-    packetOfDeath: false,
+    packetOfDeath: true,
 }
 
 // Globals
@@ -364,7 +364,6 @@ function main() {
     const [hubs, pipes] = Scene;
     let packageOfDeath: Packet = null;
 
-    let killedThisFrame: Hub[] = [];
     let noRoute: Set<Hub> = new Set();
     let walkingDead: Map<Hub, number> = new Map();
     
@@ -383,7 +382,15 @@ function main() {
         }
 
         // remove dead nodes
-        for (let [hub, t] of walkingDead) {
+        let okToKill: Hub[] = [];
+        for (let [hub, framesUntilRipe] of walkingDead) {
+            if (requestRefresh) {
+                if (framesUntilRipe > 0) {
+                    walkingDead.set(hub, framesUntilRipe - 1);
+                } else {
+                    noRoute.add(hub)
+                }
+            }
 
             let noInflight = true;
             for (let [, p] of hub.neighbors) {
@@ -395,9 +402,7 @@ function main() {
 
             if (noInflight && noRoute.has(hub)) {
                 let h = hubs.get(hub.id);
-                killedThisFrame.push(hub);
-                hubs.delete(hub.id);
-
+                okToKill.push(hub);
                 for (let [n, p] of h.neighbors) {
                     h.neighbors.delete(n);
                     n.neighbors.delete(h);
@@ -407,9 +412,13 @@ function main() {
                 }
             }
         }
-        for (let k of killedThisFrame)
+        for (let k of okToKill) {
+            log(`[Main]: reaped Hub ${k.id}`)
             walkingDead.delete(k);
-        killedThisFrame.length = 0;
+            hubs.delete(k.id);
+            noRoute.delete(k);
+        }
+
 
         // advance all packets
         for (let p of pipes)
@@ -419,7 +428,7 @@ function main() {
         for (let h of hubs.values()) {
             if (h.isDead) {
                 if (!walkingDead.has(h))
-                    walkingDead.set(h, frameCount);
+                    walkingDead.set(h, 2);
 
                 continue;
             }
