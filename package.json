@@ -1,0 +1,13 @@
+{
+    "name": "coffeeburn",
+    "version": "0.0.1",
+    "repository": "https://github.com/nender/coffeeburn.git",
+    "author": "Nathan Ender <nathan.ender@gmail.com>",
+    "devDependencies": {
+        "typescript": "^2.9.2",
+        "worker-loader": "^2.0.0",
+        "ts-loader": "^5.2.0",
+        "webpack": "^4.19.1"
+    },
+    "main": "dist/index.html"
+}
