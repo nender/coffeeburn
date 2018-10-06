@@ -1,10 +1,11 @@
 import Router from "worker-loader!./router";
 import { weightTraffic } from "./weightFunctions";
+import { RandomNumberGenerator } from "./rng"
 
 declare var DEBUG: boolean;
 function log(msg: string) {
-    let now = performance.now().toPrecision(4);
     if (DEBUG) {
+        let now = performance.now().toPrecision(4);
         console.log(now + ' ' + msg);
     }
 }
@@ -25,6 +26,7 @@ let frameCount = 0;
 let Scene: Scene = null;
 let milisPerFrame = 0;
 let packets: Set<Packet> = new Set();
+let rng = new RandomNumberGenerator();
 
 let getId = (function() {
     let id = 0;
@@ -35,7 +37,7 @@ function randomSelection<T>(collection: Iterable<T>): T {
     let result = null;
     let count = 0;
     for (let curr of collection) {
-        if (Math.random() < 1/++count)
+        if (rng.random() < 1/++count)
             result = curr;
     }
     return result;
@@ -52,9 +54,11 @@ function randomLiveSelection<T>(collection: Map<number, Hub>): Hub {
 // Data Types
 export type RouteInfo = Map<number, Map<number, number | null>>;
 
+let packetPool: Packet[] = []
+
 class Packet {
     readonly id: number;
-    readonly isPOD: boolean;
+    isPOD: boolean;
     target: Hub;
     speed: number;
     
@@ -62,14 +66,31 @@ class Packet {
     TAToB: boolean;
     /** Float in the range 0<=x<1 indicating progress along current Pipe*/
     TProgress: number;
+
+    static makePacket(target: Hub, isPOD = false): Packet {
+        if (packetPool.length != 0) {
+            let oldPacket = packetPool.pop()
+            oldPacket.target = target
+            oldPacket.speed = this.newSpeed()
+            oldPacket.TAToB = null
+            oldPacket.TProgress = null
+            return oldPacket
+        }
+
+        return new Packet(target, isPOD)
+    }
     
     constructor(target: Hub, isPOD = false) {
         this.id = getId();
         this.target = target;
         this.isPOD = isPOD;
-        this.speed = (Math.random() * 1.5) + 0.5;
+        this.speed = Packet.newSpeed()
         this.TAToB = null;
         this.TProgress = null;
+    }
+
+    private static newSpeed(): number {
+        return (rng.random() * 1.5) + 0.5
     }
 }
 
@@ -203,6 +224,7 @@ export class Hub {
         } else if (p.target === this) {
             log(`[Hub ${this.id}]: Accepted packet ${p.id}`);
             packets.delete(p);
+            packetPool.push(p)
             return;
         }
 
@@ -231,8 +253,8 @@ function generateHub(hubs: Map<number, Hub>, pipes: Pipe[], width, height): void
         b.neighbors.set(a, p);
     }
     
-    let x = Math.floor(Math.random() * width);
-    let y = Math.floor(Math.random() * height);
+    let x = Math.floor(rng.random() * width);
+    let y = Math.floor(rng.random() * height);
     let newHub = new Hub(x, y);
     for (let x of hubs.values()) {
         addNeighbor(x, newHub);
@@ -255,7 +277,7 @@ function generateScene(numHubs: number, width: number, height: number): Scene {
 function randInt(min: number, max: number): number {
     const low = Math.ceil(min);
     const high = Math.floor(max);
-    return Math.floor(Math.random() * (max - min)) + min;
+    return Math.floor(rng.random() * (max - min)) + min;
 }
 
 let intToColor = (function() {
@@ -391,7 +413,7 @@ function main() {
     function renderStep() {
         // generate package of death
         if (frameCount == 0 && config.packetOfDeath) {
-            packageOfDeath = new Packet(randomSelection(hubs.values()), true);
+            packageOfDeath = Packet.makePacket(randomSelection(hubs.values()), true);
             packets.add(packageOfDeath);
             randomSelection(hubs.values()).receive(packageOfDeath);
         }
@@ -453,9 +475,9 @@ function main() {
             if (!nav.has(h.id))
                 continue;
 
-            if (Math.random() < config.packetSpawnChance) {
+            if (rng.random() < config.packetSpawnChance) {
                 let target = randomLiveSelection(hubs);
-                let p = new Packet(target);
+                let p = Packet.makePacket(target);
                 packets.add(p);
                 h.receive(p);
             }
@@ -477,7 +499,7 @@ function main() {
                 }
                 factor = Math.max(factor, 0);
 
-                if (Math.floor(Math.random() * factor * config.addRemoveChance) == 0 && hubs.size > 3) {
+                if (Math.floor(rng.random() * factor * config.addRemoveChance) == 0 && hubs.size > 3) {
                     let hub = randomLiveSelection(hubs);
                     hub.isDead = true;
                     let surrogate = randomLiveSelection(Scene[0]);
@@ -496,7 +518,7 @@ function main() {
                 factor = (config.nodeCount - nodeDiff / config.nodeCount);
             }
             factor = Math.max(factor, 0);
-            if (Math.floor(Math.random() * factor * config.addRemoveChance) == 0) {
+            if (Math.floor(rng.random() * factor * config.addRemoveChance) == 0) {
                 generateHub(hubs, pipes, width, height);
             }
         }
