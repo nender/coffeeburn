@@ -3,8 +3,8 @@ import { weightTraffic } from "./weightFunctions";
 
 declare var DEBUG: boolean;
 function log(msg: string) {
-    let now = performance.now().toPrecision(4);
     if (DEBUG) {
+        let now = performance.now().toPrecision(4);
         console.log(now + ' ' + msg);
     }
 }
@@ -52,9 +52,11 @@ function randomLiveSelection<T>(collection: Map<number, Hub>): Hub {
 // Data Types
 export type RouteInfo = Map<number, Map<number, number | null>>;
 
+let packetPool: Packet[] = []
+
 class Packet {
     readonly id: number;
-    readonly isPOD: boolean;
+    isPOD: boolean;
     target: Hub;
     speed: number;
     
@@ -64,6 +66,15 @@ class Packet {
     TProgress: number;
 
     static makePacket(target: Hub, isPOD = false): Packet {
+        if (packetPool.length != 0) {
+            let oldPacket = packetPool.pop()
+            oldPacket.target = target
+            oldPacket.speed = this.newSpeed()
+            oldPacket.TAToB = null
+            oldPacket.TProgress = null
+            return oldPacket
+        }
+
         return new Packet(target, isPOD)
     }
     
@@ -71,9 +82,13 @@ class Packet {
         this.id = getId();
         this.target = target;
         this.isPOD = isPOD;
-        this.speed = (Math.random() * 1.5) + 0.5;
+        this.speed = Packet.newSpeed()
         this.TAToB = null;
         this.TProgress = null;
+    }
+
+    private static newSpeed(): number {
+        return (Math.random() * 1.5) + 0.5
     }
 }
 
@@ -207,6 +222,7 @@ export class Hub {
         } else if (p.target === this) {
             log(`[Hub ${this.id}]: Accepted packet ${p.id}`);
             packets.delete(p);
+            packetPool.push(p)
             return;
         }
 

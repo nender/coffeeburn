@@ -19,7 +19,7 @@ module.exports = {
   },
   plugins: [
     new webpack.DefinePlugin({
-      DEBUG: true
+      DEBUG: false
     })
   ],
   output: {
