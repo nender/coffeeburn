@@ -15,10 +15,9 @@ For the end user, just a modern-ish web browser. To build you'll need node. I us
 ## Installation 
 ```
 $ npm install
-$ npm run build
+$ npm start
 ```
-Then go ahead and fire up dist/index.html in a browser
-
+`npm start` should run the build and then automatically open the page in a web browser.
  
 ## Acknowledgements
 This whole project is essentially a port of [chemicalburn](https://github.com/mikeash/ChemicalBurn/) by Mike Ash. Originally a screensaver for OS X, it fascinated me when I was younger. I thought reimplimenting it in the browser would be a fun excercise. Thanks Mike for open sourcing your code!
