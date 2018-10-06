@@ -62,6 +62,10 @@ class Packet {
     TAToB: boolean;
     /** Float in the range 0<=x<1 indicating progress along current Pipe*/
     TProgress: number;
+
+    static makePacket(target: Hub, isPOD = false): Packet {
+        return new Packet(target, isPOD)
+    }
     
     constructor(target: Hub, isPOD = false) {
         this.id = getId();
@@ -391,7 +395,7 @@ function main() {
     function renderStep() {
         // generate package of death
         if (frameCount == 0 && config.packetOfDeath) {
-            packageOfDeath = new Packet(randomSelection(hubs.values()), true);
+            packageOfDeath = Packet.makePacket(randomSelection(hubs.values()), true);
             packets.add(packageOfDeath);
             randomSelection(hubs.values()).receive(packageOfDeath);
         }
@@ -455,7 +459,7 @@ function main() {
 
             if (Math.random() < config.packetSpawnChance) {
                 let target = randomLiveSelection(hubs);
-                let p = new Packet(target);
+                let p = Packet.makePacket(target);
                 packets.add(p);
                 h.receive(p);
             }
