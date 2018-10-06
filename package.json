@@ -8,10 +8,13 @@
         "worker-loader": "^2.0.0",
         "ts-loader": "^5.2.0",
         "webpack": "^4.19.1",
-        "webpack-cli": "^3.1.1"
+        "webpack-cli": "^3.1.1",
+        "http-server": "^0.11.1"
     },
     "scripts": {
-        "build": "node_modules/.bin/webpack"
+        "build": "node_modules/.bin/webpack",
+        "serve": "node_modules/.bin/http-server ./dist -o",
+        "start": "npm run build; npm run serve"
     },
     "main": "dist/index.html"
 }
