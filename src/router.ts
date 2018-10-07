@@ -1,5 +1,6 @@
 import { RouteInfo } from './burn';
 import { GraphInfo } from './graphInfo';
+import './float64ArrayExtensions';
 
 const ctx: Worker = self as any;
 

@@ -1,6 +1,7 @@
 import Router from "worker-loader!./router";
 import { weightTraffic } from "./weightFunctions";
 import { RandomNumberGenerator } from "./rng"
+import { GraphInfo } from "./graphInfo";
 
 declare var DEBUG: boolean;
 function log(msg: string) {
@@ -15,9 +16,9 @@ let config = {
     distanceWeight: "square",
     nodeCount: 80,
     packetSpawnChance: 1 / 60,
-    addRemoveNodes: true,
+    addRemoveNodes: false,
     addRemoveChance: 45,
-    packetOfDeath: true,
+    packetOfDeath: false,
 }
 
 // Globals
@@ -27,6 +28,7 @@ let Scene: Scene = null;
 let milisPerFrame = 0;
 let packets: Set<Packet> = new Set();
 let rng = new RandomNumberGenerator();
+var graphInfo = new GraphInfo()
 
 let getId = (function() {
     let id = 0;
@@ -192,7 +194,6 @@ class Pipe {
 }
 
 export class Hub {
-    // x, y coordinates in world-space (i.e. in the range [0-1])
     readonly position: [number, number];
     readonly id: number;
     readonly neighbors: Map<Hub, Pipe>;
@@ -387,6 +388,8 @@ function main() {
     }
     history.replaceState(0, document.title, "?"+params.toString());
 
+    graphInfo.rawData = new Float64Array(GraphInfo.bufferSizeDoubles(config.nodeCount))
+
     const height = window.innerHeight;
     const width = window.innerWidth;
 
@@ -524,7 +527,9 @@ function main() {
         }
 
         if (requestRefresh) {
-            router.postMessage([hubs, null]);
+            graphInfo.rawData = new Float64Array(GraphInfo.bufferSizeDoubles(config.nodeCount))
+            graphInfo.writeGraph(Array.from(hubs.values()))
+            router.postMessage(graphInfo.rawData);
             requestRefresh = false;
         }
 
@@ -548,8 +553,9 @@ function main() {
         }
     }
 
-    router.postMessage([hubs, config]);
-    
+    graphInfo.writeGraph(Array.from(hubs.values()))
+
+    router.postMessage(graphInfo.rawData);
 }
 
 main()

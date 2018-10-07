@@ -1,18 +1,26 @@
-function size(n: number): number {
+export function triangleNumber(n: number): number {
     return Math.trunc(n * (n + 1) / 2)
 }
 
-interface Float64Array {
-    writeTri(row: number, column: number, data: number)
-    readTri(row: number, column: number): number
+declare global {
+    interface Float64Array {
+        writeTri(row: number, column: number, data: number)
+        readTri(row: number, column: number): number
+    }
 }
 
 Float64Array.prototype.writeTri = function(row: number, column: number, data: number) {
-    let index = size(row - 1) + column
-    this[index] = data
+    if (row <= column) {
+        this[triangleNumber(row - 1) + column] = data
+    } else if (row > column) {
+        this[triangleNumber(column - 1) + row] = data
+    }
 }
 
 Float64Array.prototype.readTri = function(row: number, column: number): number {
-    let index = size(row - 1) + column
-    return this[index]
+    if (row <= column) {
+        return this[triangleNumber(row - 1) + column]
+    } else if (row > column) {
+        return this[triangleNumber(column - 1) + row]
+    }
 }
