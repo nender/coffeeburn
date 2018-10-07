@@ -1,4 +1,4 @@
-import { Hub, RouteInfo } from './burn';
+import { RouteInfo } from './burn';
 import { GraphInfo } from './graphInfo';
 
 const ctx: Worker = self as any;
