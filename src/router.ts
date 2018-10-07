@@ -1,19 +1,21 @@
 import { Hub, RouteInfo } from './burn';
-import { weightTraffic } from './weightFunctions';
+import { GraphInfo } from './graphInfo';
 
 const ctx: Worker = self as any;
-let config: any = null;
+
+let info = new GraphInfo()
 
 ctx.onmessage = function(message) {
     let nav: RouteInfo = new Map();
 
-    let [hubs, cfg] = message.data as [Map<number, Hub>, any];
-    if (cfg)
-        config = cfg;
+    let data = message.data as Float64Array
+    info.wrap(data)
 
-    for (let h of hubs.values()) {
-        const subnav = dijkstra(hubs, h);
-        nav.set(h.id, subnav);
+    let hubIDs = info.hubIDs()
+
+    for (let h of hubIDs) {
+        const subnav = dijkstra(info, h);
+        nav.set(h, subnav);
     }
 
     ctx.postMessage(nav);
@@ -21,9 +23,9 @@ ctx.onmessage = function(message) {
 
 /** Removes the hub from hubs which has the lowest cost in the lookup table */
 // todo: replace this with priority queue
-function popMinDist(hubs: Set<Hub>, costLookup: Map<Hub, number>): Hub {
+function popMinDist(hubs: Set<number>, costLookup: Map<number, number>): number {
     let minDist = Infinity;
-    let hub: Hub = hubs.values().next().value;
+    let hub = hubs.values().next().value;
         
     for (let v of hubs.keys()) {
         let weight = costLookup.get(v);
@@ -37,18 +39,21 @@ function popMinDist(hubs: Set<Hub>, costLookup: Map<Hub, number>): Hub {
     return hub;
 }
 
-function dijkstra(graph: Map<number, Hub>, source: Hub): Map<number, number | null> {
-    
-    /** set of all verticies not yet considered by the algorithm */
-    const candidateHubs = new Set<Hub>();
-    /** Map of Hub -> shortest path so far from source to Hub  */
-    const minPathCost = new Map<Hub, number>();
-    /** map of hub -> next hop on path to source */
-    const prev = new Map<number, number | null>();
+/** set of all verticies not yet considered by the algorithm */
+const candidateHubs = new Set<number>();
+/** Map of Hub Id -> shortest path so far from source to Hub  */
+const minPathCost = new Map<number, number>();
+/** map of hub -> next hop on path to source */
+const prev = new Map<number, number | null>();
 
-    for (let v of graph.values()) {
+function dijkstra(graph: GraphInfo, source: number): Map<number, number | null> {
+    candidateHubs.clear()
+    minPathCost.clear()
+    prev.clear()
+
+    for (let v of info.hubIDs()) {
         minPathCost.set(v, Infinity);
-        prev.set(v.id, null);
+        prev.set(v, null);
         candidateHubs.add(v);
     }
     minPathCost.set(source, 0);
@@ -56,20 +61,22 @@ function dijkstra(graph: Map<number, Hub>, source: Hub): Map<number, number | nu
     while (candidateHubs.size > 0) {
         const closestHub = popMinDist(candidateHubs, minPathCost);
         
-        for (let [hub, pipe] of closestHub.neighbors) {
+        for (let neighborID of graph.hubIDs()) {
+            if (neighborID == closestHub)
+                continue
+
             let pipeCost: number = null;
-            if (closestHub.isDead) {
+            if (graph.isDead(closestHub)) {
                 pipeCost = Number.MAX_VALUE;
             } else {
-                let [w, wmode] = [pipe._weight, config.trafficWeight]
-                pipeCost = pipe._length / weightTraffic(w, wmode);
+                pipeCost = graph.linkCost(closestHub, neighborID)
             }
 
             const currentBestCost = minPathCost.get(closestHub) + pipeCost;
-            const prevBestCost = minPathCost.get(hub);
+            const prevBestCost = minPathCost.get(neighborID);
             if (currentBestCost < prevBestCost) {
-                minPathCost.set(hub, currentBestCost);
-                prev.set(hub.id, closestHub.id);
+                minPathCost.set(neighborID, currentBestCost);
+                prev.set(neighborID, closestHub);
             }
         }
     }
