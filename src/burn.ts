@@ -1,5 +1,5 @@
 import Router from "worker-loader!./router";
-import { weightTraffic } from "./weightFunctions";
+import { weight, Weight } from "./weightFunctions";
 import { RandomNumberGenerator } from "./rng"
 
 declare var DEBUG: boolean;
@@ -142,7 +142,7 @@ class Pipe {
 
     traffic(): number {
         let w = this._weight;
-        return weightTraffic(w, config.trafficWeight);
+        return weight({ value: w, mode: Weight.linear });
     }
 
     distance(): number {

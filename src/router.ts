@@ -1,5 +1,5 @@
 import { Hub, RouteInfo } from './burn';
-import { weightTraffic } from './weightFunctions';
+import { weight, Weight } from './weightFunctions';
 
 const ctx: Worker = self as any;
 let config: any = null;
@@ -62,7 +62,7 @@ function dijkstra(graph: Map<number, Hub>, source: Hub): Map<number, number | nu
                 pipeCost = Number.MAX_VALUE;
             } else {
                 let [w, wmode] = [pipe._weight, config.trafficWeight]
-                pipeCost = pipe._length / weightTraffic(w, wmode);
+                pipeCost = pipe._length / weight({ value: w, mode: Weight.linear});
             }
 
             const currentBestCost = minPathCost.get(closestHub) + pipeCost;
