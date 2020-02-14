@@ -1,6 +1,7 @@
 import Router from "worker-loader!./router";
 import { weight, Weight } from "./weightFunctions";
 import { RandomNumberGenerator } from "./rng"
+import { Config } from "./Config";
 
 declare var DEBUG: boolean;
 function log(msg: string) {
@@ -10,15 +11,7 @@ function log(msg: string) {
     }
 }
 
-let config = {
-    trafficWeight: "linear",
-    distanceWeight: "square",
-    nodeCount: 80,
-    packetSpawnChance: 1 / 60,
-    addRemoveNodes: true,
-    addRemoveChance: 45,
-    packetOfDeath: true,
-}
+let config = new Config()
 
 // Globals
 let nav: RouteInfo = new Map();
