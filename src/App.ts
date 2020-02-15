@@ -9,14 +9,12 @@ import { Pipe } from "./Pipe";
 export const globalConfig = new Config()
 export const globalRng = new RandomNumberGenerator()
 export const globalPacketPool: Packet[] = []
-export let globalScene: Scene
 export let globalPackets: Set<Packet> = new Set()
 export let globalNav: RouteInfo
 
 export class App {
     readonly height: number
     readonly width: number
-    canvas: HTMLCanvasElement
     scene: Scene
     frameCount = 0
     packets: Set<Packet>

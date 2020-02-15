@@ -1,7 +1,8 @@
 import { Packet } from "./Packet";
 import { Pipe } from "./Pipe";
 import { getId, log, randomLiveSelection } from "./burn";
-import { globalScene, globalPackets, globalPacketPool, globalNav } from "./App";
+import { globalPackets, globalPacketPool, globalNav } from "./App";
+import { app } from "./main";
 
 export class Hub {
     // x, y coordinates in world-space (i.e. in the range [0-1])
@@ -22,14 +23,14 @@ export class Hub {
             if (!this.isDead) {
                 this.isDead = true;
                 log(`[Hub ${this.id}]: Killed by POD`);
-                let surrogate = randomLiveSelection(globalScene[0]);
+                let surrogate = randomLiveSelection(app.scene.hubs);
                 for (let p of globalPackets)
                     if (p.target == this)
                         p.target = surrogate;
             }
 
             if (p.target === this) {
-                p.target = randomLiveSelection(globalScene[0]);
+                p.target = randomLiveSelection(app.scene.hubs);
                 log(`[Hub ${this.id}]: Rerouting POD to ${p.target.id}`);
             }
 
@@ -43,7 +44,7 @@ export class Hub {
         if (this.neighbors.size === 0)
             throw "No links";
         const nexthopID = globalNav.get(p.target.id)!.get(this.id)!
-        const nextHop = globalScene[0].get(nexthopID)!;
+        const nextHop = app.scene.hubs.get(nexthopID)!;
         let pipe = this.neighbors.get(nextHop)!
         pipe.receive(p, nextHop);
         log(`[Hub ${this.id}]: Sent ${p.id} towards ${nextHop.id}`);
