@@ -28,6 +28,9 @@ export class App {
     packageOfDeath: Packet | null = null
     started = false
 
+    meanPacketLifespan = 1
+    packetDeliveryCount = 1
+
     constructor(canvas: HTMLCanvasElement, config: Config) {
         this.config = config
         this.rng = new RandomNumberGenerator()
@@ -51,7 +54,7 @@ export class App {
             let speed = this.randomPacketSpeed()
             let travellingAtoB = true
             let targetHub = this.rng.randomSelection(this.scene.hubs.values())
-            this.packageOfDeath = this.makeOrRecyclePacket(targetHub, travellingAtoB, speed)
+            this.packageOfDeath = this.makeOrRecyclePacket(targetHub, travellingAtoB, speed, this.frameCount)
             this.packets.add(this.packageOfDeath)
             this.rng
                 .randomSelection(this.scene.hubs.values())
@@ -138,7 +141,7 @@ export class App {
                 let target = this.randomLiveHub()
                 let speed = this.randomPacketSpeed()
                 let travellingAtoB = undefined
-                let p = this.makeOrRecyclePacket(target, travellingAtoB, speed)
+                let p = this.makeOrRecyclePacket(target, travellingAtoB, speed, this.frameCount)
                 this.packets.add(p)
                 h.receive(p, this)
             }
@@ -249,6 +252,7 @@ export class App {
         ctx.fillStyle = "white"
         ctx.fillText(`Packets: ${this.packets.size} `, 0, 8*2)
         ctx.fillText(`Hubs: ${this.hubs.size} `, 0, 8*3)
+        ctx.fillText(`Avg. Life: ${Math.round(this.meanPacketLifespan)} `, 0, 8*4)
 
         this.frameCount += 1
         let frameTime = performance.now()
@@ -280,17 +284,14 @@ export class App {
         }
     }
 
-    makeOrRecyclePacket(target: Hub, isPOD = false, speed: number): Packet {
+    makeOrRecyclePacket(target: Hub, isPOD = false, speed: number, currentFrame: number): Packet {
         if (this.packetPool.length != 0) {
             let oldPacket = this.packetPool.pop()!
-            oldPacket.target = target
-            oldPacket.speed = speed
-            oldPacket.TAToB = false
-            oldPacket.TProgress = 0
+            oldPacket.commonInit(target, isPOD, speed, currentFrame)
             return oldPacket
         }
 
-        return new Packet(target, isPOD, speed)
+        return new Packet(target, isPOD, speed, currentFrame)
     }
 
     generateHub(hubs: Map<number, Hub>, pipes: Pipe[], width: number, height: number, rng: RandomNumberGenerator): void {
@@ -331,5 +332,13 @@ export class App {
             target = this.rng.randomSelection(this.hubs.values())
         } while (target.isDead || !this.nav.has(target.id) )
         return target
+    }
+
+    recordDeliveryStats(packet: Packet) {
+        this.packetDeliveryCount += 1
+        let transitTime = this.frameCount - packet.birthFrame
+        let avgScale = (this.packetDeliveryCount - 1) / this.packetDeliveryCount
+        this.meanPacketLifespan *= avgScale
+        this.meanPacketLifespan += transitTime / this.packetDeliveryCount
     }
 }

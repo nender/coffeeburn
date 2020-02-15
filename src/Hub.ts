@@ -37,6 +37,7 @@ export class Hub {
             log(`[Hub ${this.id}]: Accepted packet ${p.id}`)
             app.packets.delete(p)
             app.packetPool.push(p)
+            app.recordDeliveryStats(p)
             return
         }
 
