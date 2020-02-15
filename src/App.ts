@@ -4,6 +4,7 @@ import { Packet } from "./Packet";
 import { Hub } from "./Hub";
 import { RandomNumberGenerator } from "./rng";
 import Router from "worker-loader!./router";
+import { Pipe } from "./Pipe";
 
 export const globalConfig = new Config()
 export const globalRng = new RandomNumberGenerator()
@@ -17,203 +18,198 @@ export class App {
     readonly width: number
     canvas: HTMLCanvasElement
     scene: Scene
-    frameCount: number
-    packageOfDeath: Packet
+    frameCount = 0
     packets: Set<Packet>
     milisPerFrame: number
 
-    constructor() {
+    noRoute: Set<Hub> = new Set()
+    walkingDead: Map<Hub, number> = new Map()
+    requestRefresh = false
+    lastFrame = performance.now()
+    ctx: CanvasRenderingContext2D
+
+    router: Router
+    packageOfDeath: Packet | null = null;
+    started = false
+
+    constructor(canvas: HTMLCanvasElement) {
+        this.width = canvas.width
+        this.height = canvas.height
+        this.ctx = canvas.getContext('2d')!
+        this.ctx.font = '8px monospace';
+        this.scene = generateScene(globalConfig.nodeCount, this.width, this.height);
+
+        let router = new Router();
+        router.onmessage = (e) => {
+            globalNav = e.data;
+            this.requestRefresh = true;
+            log("[Router] Got new route info")
+
+            if (!this.started) {
+                this.started = true;
+                this.step();
+            }
+        }
+        this.router = router
+        this.router.postMessage([this.hubs, globalConfig]);
+
+        // generate package of death
+        if (this.frameCount == 0 && globalConfig.packetOfDeath) {
+            this.packageOfDeath = Packet.makePacket(randomSelection(this.scene.hubs.values()), true);
+            this.packets.add(this.packageOfDeath);
+            randomSelection(this.scene.hubs.values()).receive(this.packageOfDeath);
+        }
     }
 
-    main() {
-        this.canvas = document.getElementById('canvas') as HTMLCanvasElement;
-        this.canvas.height = this.height;
-        this.canvas.width = this.width;
+    get hubs(): Map<number, Hub> {
+        return this.scene.hubs
+    }
 
-        const ctx = this.canvas.getContext('2d')!
-        ctx.font = '8px monospace';
+    get pipes(): Pipe[] {
+        return this.scene.pipes
+    }
 
-        this.scene = generateScene(globalConfig.nodeCount, this.width, this.height);
-        const [hubs, pipes] = this.scene;
-        let packageOfDeath: Packet | null = null;
-
-        let noRoute: Set<Hub> = new Set();
-        let walkingDead: Map<Hub, number> = new Map();
-        
-        let started = false;
-        let requestRefresh = false;
-        let lastFrame = performance.now();
-        
-        this.render(ctx, this.scene, this.height, this.width);
-
-        function renderStep() {
-            // generate package of death
-            if (this.frameCount == 0 && globalConfig.packetOfDeath) {
-                packageOfDeath = Packet.makePacket(randomSelection(hubs.values()), true);
-                this.packets.add(packageOfDeath);
-                randomSelection(hubs.values()).receive(packageOfDeath);
-            }
-
-            // remove dead nodes
-            let okToKill: Hub[] = [];
-            for (let [hub, framesUntilRipe] of walkingDead) {
-                if (requestRefresh) {
-                    if (framesUntilRipe > 0) {
-                        walkingDead.set(hub, framesUntilRipe - 1);
-                    } else {
-                        noRoute.add(hub)
-                    }
-                }
-
-                let noInflight = true;
-                for (let [, p] of hub.neighbors) {
-                    if (p.inflight.size > 0) {
-                        noInflight = false;
-                        break;
-                    }
-                }
-
-                if (noInflight && noRoute.has(hub)) {
-                    let h = hubs.get(hub.id)!
-                    okToKill.push(hub);
-                    for (let [n, p] of h.neighbors) {
-                        h.neighbors.delete(n);
-                        n.neighbors.delete(h);
-
-                        let pos = pipes.indexOf(p);
-                        pipes.splice(pos, 1);
-                    }
-                }
-            }
-            for (let k of okToKill) {
-                log(`[Main]: reaped Hub ${k.id}`)
-                walkingDead.delete(k);
-                hubs.delete(k.id);
-                noRoute.delete(k);
-            }
-
-
-            // advance all packets
-            for (let p of pipes)
-                p.step();
-
-            // add new packages
-            for (let h of hubs.values()) {
-                if (h.isDead) {
-                    if (!walkingDead.has(h))
-                        walkingDead.set(h, 2);
-
-                    continue;
-                }
-
-                // test nav to make sure we only route to and from packets which we
-                // have routing info on
-                if (!this.nav.has(h.id))
-                    continue;
-
-                if (this.rng.random() < globalConfig.packetSpawnChance) {
-                    let target = randomLiveSelection(hubs);
-                    let p = Packet.makePacket(target);
-                    this.packets.add(p);
-                    h.receive(p);
+    step() {
+        // remove dead nodes
+        let okToKill: Hub[] = [];
+        for (let [hub, framesUntilRipe] of this.walkingDead) {
+            if (this.requestRefresh) {
+                if (framesUntilRipe > 0) {
+                    this.walkingDead.set(hub, framesUntilRipe - 1);
+                } else {
+                    this.noRoute.add(hub)
                 }
             }
 
-            // add and remove nodes
-            if (globalConfig.addRemoveNodes) {
-                // destroy nodes
-                if (packageOfDeath) {
-                    packageOfDeath.speed = ((hubs.size - walkingDead.size) / globalConfig.nodeCount) ** 2;
+            let noInflight = true;
+            for (let [, p] of hub.neighbors) {
+                if (p.inflight.size > 0) {
+                    noInflight = false;
+                    break;
                 }
-                else {
-                    let nodeDiff = hubs.size - globalConfig.nodeCount + walkingDead.size;
-                    let factor = 0;
-                    if (nodeDiff <= 0) {
-                        factor = 1;
-                    } else {
-                        factor = (globalConfig.nodeCount - nodeDiff)/ globalConfig.nodeCount;
-                    }
-                    factor = Math.max(factor, 0);
+            }
 
-                    if (Math.floor(this.rng.random() * factor * globalConfig.addRemoveChance) == 0 && hubs.size > 3) {
-                        let hub = randomLiveSelection(hubs);
-                        hub.isDead = true;
-                        let surrogate = randomLiveSelection(this.scene[0]);
-                        for (let p of this.packets)
-                            if (p.target == this)
-                                p.target = surrogate;
-                    }
+            if (noInflight && this.noRoute.has(hub)) {
+                let h = this.hubs.get(hub.id)!
+                okToKill.push(hub);
+                for (let [n, p] of h.neighbors) {
+                    h.neighbors.delete(n);
+                    n.neighbors.delete(h);
+
+                    let pos = this.pipes.indexOf(p);
+                    this.pipes.splice(pos, 1);
                 }
+            }
+        }
+        for (let k of okToKill) {
+            log(`[Main]: reaped Hub ${k.id}`)
+            this.walkingDead.delete(k);
+            this.hubs.delete(k.id);
+            this.noRoute.delete(k);
+        }
 
-                // add nodes
-                let nodeDiff = globalConfig.nodeCount - hubs.size - walkingDead.size;
+
+        // advance all packets
+        for (let p of this.pipes)
+            p.step();
+
+        // add new packages
+        for (let h of this.hubs.values()) {
+            if (h.isDead) {
+                if (!this.walkingDead.has(h))
+                    this.walkingDead.set(h, 2);
+
+                continue;
+            }
+
+            // test nav to make sure we only route to and from packets which we
+            // have routing info on
+            if (!globalNav.has(h.id))
+                continue;
+
+            if (globalRng.random() < globalConfig.packetSpawnChance) {
+                let target = randomLiveSelection(this.hubs);
+                let p = Packet.makePacket(target);
+                this.packets.add(p);
+                h.receive(p);
+            }
+        }
+
+        // add and remove nodes
+        if (globalConfig.addRemoveNodes) {
+            // destroy nodes
+            if (this.packageOfDeath) {
+                this.packageOfDeath.speed = ((this.hubs.size - this.walkingDead.size) / globalConfig.nodeCount) ** 2;
+            }
+            else {
+                let nodeDiff = this.hubs.size - globalConfig.nodeCount + this.walkingDead.size;
                 let factor = 0;
                 if (nodeDiff <= 0) {
                     factor = 1;
                 } else {
-                    factor = (globalConfig.nodeCount - nodeDiff / globalConfig.nodeCount);
+                    factor = (globalConfig.nodeCount - nodeDiff)/ globalConfig.nodeCount;
                 }
                 factor = Math.max(factor, 0);
-                if (Math.floor(this.rng.random() * factor * globalConfig.addRemoveChance) == 0) {
-                    generateHub(hubs, pipes, this.width, this.height);
+
+                if (Math.floor(globalRng.random() * factor * globalConfig.addRemoveChance) == 0 && this.hubs.size > 3) {
+                    let hub = randomLiveSelection(this.hubs);
+                    hub.isDead = true;
+                    let surrogate = randomLiveSelection(this.scene[0]);
+                    for (let p of this.packets)
+                        if (p.target == hub)
+                            p.target = surrogate;
                 }
             }
 
-            if (requestRefresh) {
-                router.postMessage([hubs, null]);
-                requestRefresh = false;
+            // add nodes
+            let nodeDiff = globalConfig.nodeCount - this.hubs.size - this.walkingDead.size;
+            let factor = 0;
+            if (nodeDiff <= 0) {
+                factor = 1;
+            } else {
+                factor = (globalConfig.nodeCount - nodeDiff / globalConfig.nodeCount);
             }
-
-            this.render(this.ctx, this.scene, this.height, this.width);
-            window.requestAnimationFrame(renderStep);
-            this.frameCount += 1;
-            let frameTime = performance.now();
-            this.milisPerFrame = (this.milisPerFrame * 19 + (frameTime - lastFrame)) / 20;
-            lastFrame = frameTime;
-        }
-
-        let router = new Router();
-        router.onmessage = function(e) {
-            globalNav = e.data;
-            requestRefresh = true;
-            log("[Router] Got new route info")
-
-            if (!started) {
-                started = true;
-                renderStep();
+            factor = Math.max(factor, 0);
+            if (Math.floor(globalRng.random() * factor * globalConfig.addRemoveChance) == 0) {
+                generateHub(this.hubs, this.pipes, this.width, this.height);
             }
         }
 
-        router.postMessage([hubs, globalConfig]);
-        
+        if (this.requestRefresh) {
+            this.router.postMessage([this.hubs, null]);
+            this.requestRefresh = false;
+        }
+
+        this.frameCount += 1;
+        let frameTime = performance.now();
+        this.milisPerFrame = (this.milisPerFrame * 19 + (frameTime - this.lastFrame)) / 20;
+        this.lastFrame = frameTime;
     }
 
-    render(ctx: CanvasRenderingContext2D, scene: Scene, height: number, width: number): void {
-        ctx.fillStyle = "black";
-        ctx.fillRect(0, 0, width, height);
+    render(): void {
+        this.ctx.fillStyle = "black";
+        this.ctx.fillRect(0, 0, this.width, this.height);
         
-        const [hubs, pipes] = scene;
-        
-        for (let pipe of pipes) {
+        for (let pipe of this.pipes) {
             let lineWidth = Math.min(6, (pipe.traffic() - 1) / 24)
             let p1 = pipe.ends[0].position;
             let p2 = pipe.ends[1].position;
 
             if (lineWidth >= 1/255) {
                 if (pipe.ends[0].isDead || pipe.ends[1].isDead)
-                    ctx.strokeStyle = "red";
+                    this.ctx.strokeStyle = "red";
                 else 
-                    ctx.strokeStyle = "white";
+                    this.ctx.strokeStyle = "white";
 
-                ctx.lineWidth = lineWidth;
+                this.ctx.lineWidth = lineWidth;
 
                 let [x1, y1] = p1;
                 let [x2, y2] = p2;
 
-                ctx.beginPath();
-                ctx.moveTo(x1, y1);
-                ctx.lineTo(x2, y2);
-                ctx.stroke();
+                this.ctx.beginPath();
+                this.ctx.moveTo(x1, y1);
+                this.ctx.lineTo(x2, y2);
+                this.ctx.stroke();
             }
 
             for (let packet of pipe.inflight.keys()) {
@@ -224,17 +220,17 @@ export class App {
                     if (packet.isPOD) {
                         const packetSize = 12;
                         const r = packetSize / 2;
-                        ctx.fillStyle = "red";
-                        ctx.beginPath();
-                        ctx.moveTo(x1+ dx, y1 + dy - r);
-                        ctx.lineTo(x1 + dx + r, y1 + dy + r);
-                        ctx.lineTo(x1 + dx - r, y1 + dy + r);
-                        ctx.fill();
+                        this.ctx.fillStyle = "red";
+                        this.ctx.beginPath();
+                        this.ctx.moveTo(x1+ dx, y1 + dy - r);
+                        this.ctx.lineTo(x1 + dx + r, y1 + dy + r);
+                        this.ctx.lineTo(x1 + dx - r, y1 + dy + r);
+                        this.ctx.fill();
                     } else {
                         const packetSize = 4;
                         const r = packetSize / 2;
-                        ctx.fillStyle = intToColor(packet.target.id);
-                        ctx.fillRect((x1 + dx) - r,
+                        this.ctx.fillStyle = intToColor(packet.target.id);
+                        this.ctx.fillRect((x1 + dx) - r,
                             (y1 + dy) - r,
                             packetSize, packetSize);
                     }
@@ -251,17 +247,17 @@ export class App {
         }
         
         const hubsize = 7;
-        for (let h of hubs.values()) {
+        for (let h of this.hubs.values()) {
             if (h.isDead)
-                ctx.fillStyle = "red";
+                this.ctx.fillStyle = "red";
             else
-                ctx.fillStyle = "white";
+                this.ctx.fillStyle = "white";
 
             let [x, y] = h.position;
-            ctx.fillRect(x - (hubsize/2), y - (hubsize/2), hubsize, hubsize);
+            this.ctx.fillRect(x - (hubsize/2), y - (hubsize/2), hubsize, hubsize);
         }
 
-        ctx.fillStyle = "white";
-        ctx.fillText(Math.round(1000/this.milisPerFrame).toString(), 0, 8);
+        this.ctx.fillStyle = "white";
+        this.ctx.fillText(Math.round(1000/this.milisPerFrame).toString(), 0, 8);
     }
 }

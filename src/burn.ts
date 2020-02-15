@@ -16,7 +16,6 @@ export function log(msg: string) {
 // Globals
 let nav: RouteInfo = new Map();
 let frameCount = 0;
-let Scene: Scene = [new Map(), []]
 let milisPerFrame = 0;
 let packets: Set<Packet> = new Set();
 let rng = new RandomNumberGenerator();
@@ -49,8 +48,10 @@ export type RouteInfo = Map<number, Map<number, number | null>>;
 
 let packetPool: Packet[] = []
 
-// Program
-export type Scene = [Map<number, Hub>, Pipe[]]
+export class Scene {
+    hubs: Map<number, Hub>
+    pipes: Pipe[]
+}
 
 export function generateHub(hubs: Map<number, Hub>, pipes: Pipe[], width: number, height: number): void {
     function addNeighbor(a: Hub, b: Hub): void {
@@ -81,7 +82,7 @@ export function generateScene(numHubs: number, width: number, height: number): S
     for (let i = 0; i < numHubs; i++) {
         generateHub(hubs, pipes, width, height);
     }
-    return [hubs, pipes];
+    return new Scene()
 }
 
 function randInt(min: number, max: number): number {
