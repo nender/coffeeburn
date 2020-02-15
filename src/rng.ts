@@ -18,4 +18,14 @@ export class RandomNumberGenerator {
 
         return min + rnd * (max - min);
     }
+
+    randomSelection<T>(collection: Iterable<T>): T {
+        let result: T | null = null;
+        let count = 0;
+        for (let curr of collection) {
+            if (this.random() < 1/++count)
+                result = curr;
+        }
+        return result!;
+    }
 }

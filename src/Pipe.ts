@@ -1,22 +1,25 @@
 import { Hub } from "./Hub";
 import { Packet } from "./Packet";
 import { weight, Weight } from "./weightFunctions";
-import { app } from "./main";
+import { Config } from "./Config";
+import { App } from "./App";
 
 export class Pipe {
     readonly ends: [Hub, Hub];
     readonly inflight: Set<Packet>;
+    config: Config;
     _weight: number;
     _length: number;
 
-    constructor(a: Hub, b: Hub) {
+    constructor(a: Hub, b: Hub, config: Config) {
         this.ends = [a, b];
         this._weight = 1;
         this.inflight = new Set();
+        this.config = config
         
         let dx = Math.abs(a.position[0] - b.position[0]);
         let dy = Math.abs(a.position[1] - b.position[1]);
-        this._length = this.weightLength(dx**2+dy**2, app.config.distanceWeight);
+        this._length = this.weightLength(dx**2+dy**2, this.config.distanceWeight);
     }
 
     weightLength(l: number, mode: string): number {
@@ -75,7 +78,7 @@ export class Pipe {
         this.incrementWeight();
     }
 
-    step(): void {
+    step(app: App): void {
         const delivered: Set<Packet> = new Set();
         // loop through all the inflight packets, updating their status and making note
         // of those which are complete;
@@ -91,9 +94,9 @@ export class Pipe {
         for (let packet of delivered) {
             this.inflight.delete(packet);
             if (packet.TAToB)
-                this.ends[1].receive(packet);
+                this.ends[1].receive(packet, app);
             else
-                this.ends[0].receive(packet);
+                this.ends[0].receive(packet, app);
         }
         
         this.decrementWeight();

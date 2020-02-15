@@ -1,23 +1,29 @@
 import { RouteInfo } from './burn';
 import { weight, Weight } from './weightFunctions';
 import { Hub } from './Hub';
+import { Config } from './Config';
 
 const ctx: Worker = self as any;
-let config: any = null;
+let config: Config | null = null;
 
 ctx.onmessage = function(message) {
-    let nav: RouteInfo = new Map();
-
-    let [hubs, cfg] = message.data as [Map<number, Hub>, any];
+    let [hubs, cfg] = message.data as [Map<number, Hub>, Config];
     if (cfg)
         config = cfg;
 
+    let nav = routeInfoFor(hubs, config!)
+
+    ctx.postMessage(nav)
+}
+
+export function routeInfoFor(hubs: Map<number, Hub>, config: Config): RouteInfo {
+    let nav: RouteInfo = new Map();
     for (let h of hubs.values()) {
-        const subnav = dijkstra(hubs, h);
+        const subnav = dijkstra(hubs, h, config);
         nav.set(h.id, subnav);
     }
 
-    ctx.postMessage(nav);
+    return nav
 }
 
 /** Removes the hub from hubs which has the lowest cost in the lookup table */
@@ -38,7 +44,7 @@ function popMinDist(hubs: Set<Hub>, costLookup: Map<Hub, number>): Hub {
     return hub;
 }
 
-function dijkstra(graph: Map<number, Hub>, source: Hub): Map<number, number | null> {
+function dijkstra(graph: Map<number, Hub>, source: Hub, config: Config): Map<number, number | null> {
     
     /** set of all verticies not yet considered by the algorithm */
     const candidateHubs = new Set<Hub>();

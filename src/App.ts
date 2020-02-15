@@ -1,10 +1,11 @@
 import { Config } from "./Config";
-import { Scene, randomSelection, randomLiveSelection, intToColor, log, generateScene, RouteInfo, generateHub } from "./burn";
+import { Scene, intToColor, log, RouteInfo } from "./burn";
 import { Packet } from "./Packet";
 import { Hub } from "./Hub";
 import { RandomNumberGenerator } from "./rng";
 import Router from "worker-loader!./router";
 import { Pipe } from "./Pipe";
+import { routeInfoFor } from "./router";
 
 export class App {
     readonly height: number
@@ -13,13 +14,13 @@ export class App {
     frameCount = 0
     milisPerFrame = 0
     config: Config
-    rng = new RandomNumberGenerator()
+    rng: RandomNumberGenerator
     nav: RouteInfo
     packetPool: Packet[] = []
 
     noRoute: Set<Hub> = new Set()
     walkingDead: Map<Hub, number> = new Map()
-    requestRefresh = false
+    requestRoutingRefresh = true
     lastFrame = performance.now()
     ctx: CanvasRenderingContext2D
 
@@ -29,35 +30,32 @@ export class App {
 
     constructor(canvas: HTMLCanvasElement, config: Config) {
         this.config = config
+        this.rng = new RandomNumberGenerator()
         this.width = canvas.width
         this.height = canvas.height
         this.ctx = canvas.getContext('2d')!
         this.ctx.font = '8px monospace';
-        this.scene = generateScene(this.config.nodeCount, this.width, this.height);
-        this.nav = new Map()
+        this.scene = this.generateScene(this.config.nodeCount, this.width, this.height, this.rng);
+        this.nav = routeInfoFor(this.hubs, this.config)
 
         let router = new Router();
-        router.onmessage = (e) => {
-            this.nav = e.data;
-            this.requestRefresh = true;
+        router.onmessage = (messageEvent) => {
+            this.nav = messageEvent.data as RouteInfo;
+            this.requestRoutingRefresh = true;
             log("[Router] Got new route info")
-
-            if (!this.started) {
-                this.started = true;
-                this.step();
-            }
         }
         this.router = router
-        this.router.postMessage([this.hubs, this.config]);
 
         // generate package of death
         if (this.frameCount == 0 && this.config.packetOfDeath) {
             let speed = this.randomPacketSpeed()
             let travellingAtoB = true
-            let targetHub = randomSelection(this.scene.hubs.values())
+            let targetHub = this.rng.randomSelection(this.scene.hubs.values())
             this.packageOfDeath = this.makeOrRecyclePacket(targetHub, travellingAtoB, speed);
             this.packets.add(this.packageOfDeath);
-            randomSelection(this.scene.hubs.values()).receive(this.packageOfDeath);
+            this.rng
+                .randomSelection(this.scene.hubs.values())
+                .receive(this.packageOfDeath, this);
         }
     }
 
@@ -81,7 +79,7 @@ export class App {
         // remove dead nodes
         let okToKill: Hub[] = [];
         for (let [hub, framesUntilRipe] of this.walkingDead) {
-            if (this.requestRefresh) {
+            if (this.requestRoutingRefresh) {
                 if (framesUntilRipe > 0) {
                     this.walkingDead.set(hub, framesUntilRipe - 1);
                 } else {
@@ -119,7 +117,7 @@ export class App {
 
         // advance all packets
         for (let p of this.pipes)
-            p.step();
+            p.step(this);
 
         // add new packages
         for (let h of this.hubs.values()) {
@@ -136,12 +134,12 @@ export class App {
                 continue;
 
             if (this.rng.random() < this.config.packetSpawnChance) {
-                let target = randomLiveSelection(this.hubs);
+                let target = this.randomLiveHub();
                 let speed = this.randomPacketSpeed()
                 let travellingAtoB = undefined
                 let p = this.makeOrRecyclePacket(target, travellingAtoB, speed)
                 this.packets.add(p);
-                h.receive(p);
+                h.receive(p, this);
             }
         }
 
@@ -162,9 +160,9 @@ export class App {
                 factor = Math.max(factor, 0);
 
                 if (Math.floor(this.rng.random() * factor * this.config.addRemoveChance) == 0 && this.hubs.size > 3) {
-                    let hub = randomLiveSelection(this.hubs);
+                    let hub = this.randomLiveHub();
                     hub.isDead = true;
-                    let surrogate = randomLiveSelection(this.hubs);
+                    let surrogate = this.randomLiveHub();
                     for (let p of this.packets)
                         if (p.target == hub)
                             p.target = surrogate;
@@ -181,19 +179,14 @@ export class App {
             }
             factor = Math.max(factor, 0);
             if (Math.floor(this.rng.random() * factor * this.config.addRemoveChance) == 0) {
-                generateHub(this.hubs, this.pipes, this.width, this.height);
+                this.generateHub(this.hubs, this.pipes, this.width, this.height, this.rng);
             }
         }
 
-        if (this.requestRefresh) {
-            this.router.postMessage([this.hubs, null]);
-            this.requestRefresh = false;
+        if (this.requestRoutingRefresh) {
+            this.router.postMessage([this.hubs, this.config]);
+            this.requestRoutingRefresh = false;
         }
-
-        this.frameCount += 1;
-        let frameTime = performance.now();
-        this.milisPerFrame = (this.milisPerFrame * 19 + (frameTime - this.lastFrame)) / 20;
-        this.lastFrame = frameTime;
     }
 
     render(): void {
@@ -224,7 +217,6 @@ export class App {
 
             for (let packet of pipe.inflight.keys()) {
                 const aToB = packet.TAToB;
-                const progress = packet.TProgress;
                 if (aToB) {
                     this.drawPacket(packet, p1, p2);
                 } else {
@@ -246,6 +238,11 @@ export class App {
 
         this.ctx.fillStyle = "white";
         this.ctx.fillText(Math.round(1000/this.milisPerFrame).toString(), 0, 8);
+
+        this.frameCount += 1;
+        let frameTime = performance.now();
+        this.milisPerFrame = (this.milisPerFrame * 19 + (frameTime - this.lastFrame)) / 20;
+        this.lastFrame = frameTime;
     }
 
     drawPacket(packet: Packet, p1: [number, number], p2: [number, number]) {
@@ -282,5 +279,45 @@ export class App {
         }
 
         return new Packet(target, isPOD, speed)
+    }
+
+    generateHub(hubs: Map<number, Hub>, pipes: Pipe[], width: number, height: number, rng: RandomNumberGenerator): void {
+        let x = Math.floor(rng.random() * width);
+        let y = Math.floor(rng.random() * height);
+        let newHub = new Hub(x, y);
+        for (let x of hubs.values()) {
+            this.addNeighbor(x, newHub, pipes);
+            this.addNeighbor(newHub, x, pipes);
+        }
+        hubs.set(newHub.id, newHub);
+        log(`[GenerateScene]: Added Hub ${newHub.id}`);
+    }
+
+    addNeighbor(a: Hub, b: Hub, pipes: Pipe[]): void {
+        if (a.neighbors.has(b))
+            return;
+        
+        const p = new Pipe(a, b, this.config);
+        pipes.push(p);
+        a.neighbors.set(b, p);
+        b.neighbors.set(a, p);
+    }
+
+    generateScene(numHubs: number, width: number, height: number, rng: RandomNumberGenerator): Scene {
+        const hubs: Map<number, Hub> = new Map();
+        const pipes: Pipe[] = [];
+        
+        for (let i = 0; i < numHubs; i++) {
+            this.generateHub(hubs, pipes, width, height, rng);
+        }
+        return new Scene(hubs, pipes, new Set<Packet>())
+    }
+
+    randomLiveHub(): Hub {
+        let target: Hub;
+        do {
+            target = this.rng.randomSelection(this.hubs.values());
+        } while (target.isDead || !this.nav.has(target.id) )
+        return target;
     }
 }
