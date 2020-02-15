@@ -6,8 +6,6 @@ import { RandomNumberGenerator } from "./rng";
 import Router from "worker-loader!./router";
 import { Pipe } from "./Pipe";
 
-export const globalPacketPool: Packet[] = []
-
 export class App {
     readonly height: number
     readonly width: number
@@ -17,6 +15,7 @@ export class App {
     config: Config
     rng = new RandomNumberGenerator()
     nav: RouteInfo
+    packetPool: Packet[] = []
 
     noRoute: Set<Hub> = new Set()
     walkingDead: Map<Hub, number> = new Map()
@@ -56,7 +55,7 @@ export class App {
             let speed = this.randomPacketSpeed()
             let travellingAtoB = true
             let targetHub = randomSelection(this.scene.hubs.values())
-            this.packageOfDeath = Packet.makePacket(targetHub, travellingAtoB, speed);
+            this.packageOfDeath = this.makeOrRecyclePacket(targetHub, travellingAtoB, speed);
             this.packets.add(this.packageOfDeath);
             randomSelection(this.scene.hubs.values()).receive(this.packageOfDeath);
         }
@@ -140,7 +139,7 @@ export class App {
                 let target = randomLiveSelection(this.hubs);
                 let speed = this.randomPacketSpeed()
                 let travellingAtoB = undefined
-                let p = Packet.makePacket(target, travellingAtoB, speed)
+                let p = this.makeOrRecyclePacket(target, travellingAtoB, speed)
                 this.packets.add(p);
                 h.receive(p);
             }
@@ -272,4 +271,16 @@ export class App {
         }
     }
 
+    makeOrRecyclePacket(target: Hub, isPOD = false, speed: number): Packet {
+        if (this.packetPool.length != 0) {
+            let oldPacket = this.packetPool.pop()!
+            oldPacket.target = target
+            oldPacket.speed = speed
+            oldPacket.TAToB = false
+            oldPacket.TProgress = 0
+            return oldPacket
+        }
+
+        return new Packet(target, isPOD, speed)
+    }
 }

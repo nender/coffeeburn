@@ -1,7 +1,6 @@
 import { Packet } from "./Packet";
 import { Pipe } from "./Pipe";
 import { getId, log, randomLiveSelection } from "./burn";
-import { globalPacketPool } from "./App";
 import { app } from "./main";
 
 export class Hub {
@@ -37,7 +36,7 @@ export class Hub {
         } else if (p.target === this) {
             log(`[Hub ${this.id}]: Accepted packet ${p.id}`);
             app.packets.delete(p);
-            globalPacketPool.push(p)
+            app.packetPool.push(p)
             return;
         }
 
