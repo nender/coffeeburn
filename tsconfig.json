@@ -6,7 +6,8 @@
         "lib": ["es6", "dom"],
         "downlevelIteration": true,
         "inlineSourceMap": true,
-        "inlineSources": true
+        "inlineSources": true,
+        "strictNullChecks": true
     },
     "include": [
         "src/*"

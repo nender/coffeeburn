@@ -27,7 +27,7 @@ function popMinDist(hubs: Set<Hub>, costLookup: Map<Hub, number>): Hub {
     let hub: Hub = hubs.values().next().value;
         
     for (let v of hubs.keys()) {
-        let weight = costLookup.get(v);
+        let weight = costLookup.get(v)!
         if (weight < minDist) {
             minDist = weight;
             hub = v;
@@ -55,10 +55,10 @@ function dijkstra(graph: Map<number, Hub>, source: Hub): Map<number, number | nu
     minPathCost.set(source, 0);
     
     while (candidateHubs.size > 0) {
-        const closestHub = popMinDist(candidateHubs, minPathCost);
+        const closestHub = popMinDist(candidateHubs, minPathCost)
         
         for (let [hub, pipe] of closestHub.neighbors) {
-            let pipeCost: number = null;
+            let pipeCost: number
             if (closestHub.isDead) {
                 pipeCost = Number.MAX_VALUE;
             } else {
@@ -66,8 +66,8 @@ function dijkstra(graph: Map<number, Hub>, source: Hub): Map<number, number | nu
                 pipeCost = pipe._length / weight({ value: w, mode: Weight.linear});
             }
 
-            const currentBestCost = minPathCost.get(closestHub) + pipeCost;
-            const prevBestCost = minPathCost.get(hub);
+            const currentBestCost = minPathCost.get(closestHub)! + pipeCost;
+            const prevBestCost = minPathCost.get(hub)!
             if (currentBestCost < prevBestCost) {
                 minPathCost.set(hub, currentBestCost);
                 prev.set(hub.id, closestHub.id);

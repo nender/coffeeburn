@@ -20,7 +20,6 @@ export class App {
     frameCount: number
     packageOfDeath: Packet
     packets: Set<Packet>
-    nav: RouteInfo
     milisPerFrame: number
 
     constructor() {
@@ -31,12 +30,12 @@ export class App {
         this.canvas.height = this.height;
         this.canvas.width = this.width;
 
-        const ctx = this.canvas.getContext('2d');
+        const ctx = this.canvas.getContext('2d')!
         ctx.font = '8px monospace';
 
         this.scene = generateScene(globalConfig.nodeCount, this.width, this.height);
         const [hubs, pipes] = this.scene;
-        let packageOfDeath: Packet = null;
+        let packageOfDeath: Packet | null = null;
 
         let noRoute: Set<Hub> = new Set();
         let walkingDead: Map<Hub, number> = new Map();
@@ -75,7 +74,7 @@ export class App {
                 }
 
                 if (noInflight && noRoute.has(hub)) {
-                    let h = hubs.get(hub.id);
+                    let h = hubs.get(hub.id)!
                     okToKill.push(hub);
                     for (let [n, p] of h.neighbors) {
                         h.neighbors.delete(n);
@@ -173,10 +172,9 @@ export class App {
             lastFrame = frameTime;
         }
 
-        let navAlias = this.nav
         let router = new Router();
         router.onmessage = function(e) {
-            navAlias = e.data;
+            globalNav = e.data;
             requestRefresh = true;
             log("[Router] Got new route info")
 

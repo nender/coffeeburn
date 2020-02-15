@@ -42,9 +42,9 @@ export class Hub {
 
         if (this.neighbors.size === 0)
             throw "No links";
-        const nexthopID = globalNav.get(p.target.id).get(this.id);
-        const nextHop = globalScene[0].get(nexthopID);
-        let pipe = this.neighbors.get(nextHop);
+        const nexthopID = globalNav.get(p.target.id)!.get(this.id)!
+        const nextHop = globalScene[0].get(nexthopID)!;
+        let pipe = this.neighbors.get(nextHop)!
         pipe.receive(p, nextHop);
         log(`[Hub ${this.id}]: Sent ${p.id} towards ${nextHop.id}`);
     }
