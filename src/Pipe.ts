@@ -1,7 +1,7 @@
 import { Hub } from "./Hub";
 import { Packet } from "./Packet";
 import { weight, Weight } from "./weightFunctions";
-import { globalConfig } from "./App";
+import { app } from "./main";
 
 export class Pipe {
     readonly ends: [Hub, Hub];
@@ -16,7 +16,7 @@ export class Pipe {
         
         let dx = Math.abs(a.position[0] - b.position[0]);
         let dy = Math.abs(a.position[1] - b.position[1]);
-        this._length = this.weightLength(dx**2+dy**2, globalConfig.distanceWeight);
+        this._length = this.weightLength(dx**2+dy**2, app.config.distanceWeight);
     }
 
     weightLength(l: number, mode: string): number {

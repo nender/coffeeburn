@@ -3,7 +3,6 @@ import { RandomNumberGenerator } from "./rng";
 import { Packet } from "./Packet";
 import { Hub } from "./Hub";
 import { Pipe } from "./Pipe";
-import { globalConfig } from "./App";
 
 declare var DEBUG: boolean;
 export function log(msg: string) {
