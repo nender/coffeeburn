@@ -1,5 +1,5 @@
 export class RandomNumberGenerator {
-    private state: number
+    private state: number | null = null
 
     constructor(seed?: number) {
         if (seed)

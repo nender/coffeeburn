@@ -50,6 +50,13 @@ let packetPool: Packet[] = []
 export class Scene {
     hubs: Map<number, Hub>
     pipes: Pipe[]
+    packets: Set<Packet>
+
+    constructor(hubs: Map<number, Hub>, pipes: Pipe[], packets: Set<Packet>) {
+        this.hubs = hubs
+        this.pipes = pipes
+        this.packets = packets
+    }
 }
 
 export function generateHub(hubs: Map<number, Hub>, pipes: Pipe[], width: number, height: number): void {
@@ -81,7 +88,7 @@ export function generateScene(numHubs: number, width: number, height: number): S
     for (let i = 0; i < numHubs; i++) {
         generateHub(hubs, pipes, width, height);
     }
-    return new Scene()
+    return new Scene(hubs, pipes, new Set<Packet>())
 }
 
 function randInt(min: number, max: number): number {

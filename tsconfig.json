@@ -7,7 +7,7 @@
         "downlevelIteration": true,
         "inlineSourceMap": true,
         "inlineSources": true,
-        "strictNullChecks": true
+        "strict": true
     },
     "include": [
         "src/*"

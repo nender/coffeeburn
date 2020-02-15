@@ -1,7 +1,7 @@
 import { Packet } from "./Packet";
 import { Pipe } from "./Pipe";
 import { getId, log, randomLiveSelection } from "./burn";
-import { globalPackets, globalPacketPool, globalNav } from "./App";
+import { globalPacketPool, globalNav } from "./App";
 import { app } from "./main";
 
 export class Hub {
@@ -24,7 +24,7 @@ export class Hub {
                 this.isDead = true;
                 log(`[Hub ${this.id}]: Killed by POD`);
                 let surrogate = randomLiveSelection(app.scene.hubs);
-                for (let p of globalPackets)
+                for (let p of app.packets)
                     if (p.target == this)
                         p.target = surrogate;
             }
@@ -36,7 +36,7 @@ export class Hub {
 
         } else if (p.target === this) {
             log(`[Hub ${this.id}]: Accepted packet ${p.id}`);
-            globalPackets.delete(p);
+            app.packets.delete(p);
             globalPacketPool.push(p)
             return;
         }

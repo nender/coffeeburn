@@ -8,7 +8,6 @@ import { Pipe } from "./Pipe";
 
 export const globalRng = new RandomNumberGenerator()
 export const globalPacketPool: Packet[] = []
-export let globalPackets: Set<Packet> = new Set()
 export let globalNav: RouteInfo
 
 export class App {
@@ -16,8 +15,7 @@ export class App {
     readonly width: number
     scene: Scene
     frameCount = 0
-    packets: Set<Packet>
-    milisPerFrame: number
+    milisPerFrame = 0
     config: Config
 
     noRoute: Set<Hub> = new Set()
@@ -66,6 +64,10 @@ export class App {
 
     get pipes(): Pipe[] {
         return this.scene.pipes
+    }
+    
+    get packets(): Set<Packet> {
+        return this.scene.packets
     }
 
     step() {
@@ -153,7 +155,7 @@ export class App {
                 if (Math.floor(globalRng.random() * factor * this.config.addRemoveChance) == 0 && this.hubs.size > 3) {
                     let hub = randomLiveSelection(this.hubs);
                     hub.isDead = true;
-                    let surrogate = randomLiveSelection(this.scene[0]);
+                    let surrogate = randomLiveSelection(this.hubs);
                     for (let p of this.packets)
                         if (p.target == hub)
                             p.target = surrogate;
@@ -212,35 +214,12 @@ export class App {
             }
 
             for (let packet of pipe.inflight.keys()) {
-                function drawPacket(p1: [number, number], p2: [number, number]) {
-                    let [x1, y1] = p1;
-                    let dx = (p2[0] - p1[0]) * packet.TProgress;
-                    let dy = (p2[1] - p1[1]) * packet.TProgress;
-                    if (packet.isPOD) {
-                        const packetSize = 12;
-                        const r = packetSize / 2;
-                        this.ctx.fillStyle = "red";
-                        this.ctx.beginPath();
-                        this.ctx.moveTo(x1+ dx, y1 + dy - r);
-                        this.ctx.lineTo(x1 + dx + r, y1 + dy + r);
-                        this.ctx.lineTo(x1 + dx - r, y1 + dy + r);
-                        this.ctx.fill();
-                    } else {
-                        const packetSize = 4;
-                        const r = packetSize / 2;
-                        this.ctx.fillStyle = intToColor(packet.target.id);
-                        this.ctx.fillRect((x1 + dx) - r,
-                            (y1 + dy) - r,
-                            packetSize, packetSize);
-                    }
-                }
-
                 const aToB = packet.TAToB;
                 const progress = packet.TProgress;
                 if (aToB) {
-                    drawPacket(p1, p2);
+                    this.drawPacket(packet, p1, p2);
                 } else {
-                    drawPacket(p2, p1);
+                    this.drawPacket(packet, p2, p1);
                 }
             }
         }
@@ -259,4 +238,28 @@ export class App {
         this.ctx.fillStyle = "white";
         this.ctx.fillText(Math.round(1000/this.milisPerFrame).toString(), 0, 8);
     }
+
+    drawPacket(packet: Packet, p1: [number, number], p2: [number, number]) {
+        let [x1, y1] = p1;
+        let dx = (p2[0] - p1[0]) * packet.TProgress;
+        let dy = (p2[1] - p1[1]) * packet.TProgress;
+        if (packet.isPOD) {
+            const packetSize = 12;
+            const r = packetSize / 2;
+            this.ctx.fillStyle = "red";
+            this.ctx.beginPath();
+            this.ctx.moveTo(x1+ dx, y1 + dy - r);
+            this.ctx.lineTo(x1 + dx + r, y1 + dy + r);
+            this.ctx.lineTo(x1 + dx - r, y1 + dy + r);
+            this.ctx.fill();
+        } else {
+            const packetSize = 4;
+            const r = packetSize / 2;
+            this.ctx.fillStyle = intToColor(packet.target.id);
+            this.ctx.fillRect((x1 + dx) - r,
+                (y1 + dy) - r,
+                packetSize, packetSize);
+        }
+    }
+
 }

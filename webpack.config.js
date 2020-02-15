@@ -2,9 +2,10 @@ const path = require('path');
 const webpack = require('webpack');
 
 module.exports = {
-  entry: './src/burn.ts',
+  entry: './src/main.ts',
   devtool: 'inline-source-map',
   mode: 'production',
+  watch: true,
   module: {
     rules: [
       {
