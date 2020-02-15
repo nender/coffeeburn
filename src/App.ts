@@ -7,7 +7,6 @@ import Router from "worker-loader!./router";
 import { Pipe } from "./Pipe";
 
 export const globalPacketPool: Packet[] = []
-export let globalNav: RouteInfo
 
 export class App {
     readonly height: number
@@ -17,6 +16,7 @@ export class App {
     milisPerFrame = 0
     config: Config
     rng = new RandomNumberGenerator()
+    nav: RouteInfo
 
     noRoute: Set<Hub> = new Set()
     walkingDead: Map<Hub, number> = new Map()
@@ -35,10 +35,11 @@ export class App {
         this.ctx = canvas.getContext('2d')!
         this.ctx.font = '8px monospace';
         this.scene = generateScene(this.config.nodeCount, this.width, this.height);
+        this.nav = new Map()
 
         let router = new Router();
         router.onmessage = (e) => {
-            globalNav = e.data;
+            this.nav = e.data;
             this.requestRefresh = true;
             log("[Router] Got new route info")
 
@@ -132,7 +133,7 @@ export class App {
 
             // test nav to make sure we only route to and from packets which we
             // have routing info on
-            if (!globalNav.has(h.id))
+            if (!this.nav.has(h.id))
                 continue;
 
             if (this.rng.random() < this.config.packetSpawnChance) {

@@ -1,7 +1,7 @@
 import { Packet } from "./Packet";
 import { Pipe } from "./Pipe";
 import { getId, log, randomLiveSelection } from "./burn";
-import { globalPacketPool, globalNav } from "./App";
+import { globalPacketPool } from "./App";
 import { app } from "./main";
 
 export class Hub {
@@ -43,7 +43,7 @@ export class Hub {
 
         if (this.neighbors.size === 0)
             throw "No links";
-        const nexthopID = globalNav.get(p.target.id)!.get(this.id)!
+        const nexthopID = app.nav.get(p.target.id)!.get(this.id)!
         const nextHop = app.scene.hubs.get(nexthopID)!;
         let pipe = this.neighbors.get(nextHop)!
         pipe.receive(p, nextHop);
