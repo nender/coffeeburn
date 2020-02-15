@@ -191,8 +191,9 @@ export class App {
     }
 
     render(): void {
+        let ctx = this.ctx
         this.ctx.fillStyle = "black"
-        this.ctx.fillRect(0, 0, this.width, this.height)
+        ctx.fillRect(0, 0, this.width, this.height)
         
         for (let pipe of this.pipes) {
             let lineWidth = Math.min(6, (pipe.traffic() - 1) / 24)
@@ -201,19 +202,19 @@ export class App {
 
             if (lineWidth >= 1/255) {
                 if (pipe.ends[0].isDead || pipe.ends[1].isDead)
-                    this.ctx.strokeStyle = "red"
+                    ctx.strokeStyle = "red"
                 else 
-                    this.ctx.strokeStyle = "white"
+                    ctx.strokeStyle = "white"
 
-                this.ctx.lineWidth = lineWidth
+                ctx.lineWidth = lineWidth
 
                 let [x1, y1] = p1
                 let [x2, y2] = p2
 
-                this.ctx.beginPath()
-                this.ctx.moveTo(x1, y1)
-                this.ctx.lineTo(x2, y2)
-                this.ctx.stroke()
+                ctx.beginPath()
+                ctx.moveTo(x1, y1)
+                ctx.lineTo(x2, y2)
+                ctx.stroke()
             }
 
             for (let packet of pipe.inflight.keys()) {
@@ -229,16 +230,25 @@ export class App {
         const hubsize = 7
         for (let h of this.hubs.values()) {
             if (h.isDead)
-                this.ctx.fillStyle = "red"
+                ctx.fillStyle = "red"
             else
-                this.ctx.fillStyle = "white"
+                ctx.fillStyle = "white"
 
             let [x, y] = h.position
-            this.ctx.fillRect(x - (hubsize/2), y - (hubsize/2), hubsize, hubsize)
+            ctx.fillRect(x - (hubsize/2), y - (hubsize/2), hubsize, hubsize)
         }
 
-        this.ctx.fillStyle = "white"
-        this.ctx.fillText(Math.round(1000/this.milisPerFrame).toString(), 0, 8)
+        let fps = Math.round(1000/this.milisPerFrame)
+        if (fps >= 60) {
+            ctx.fillStyle = "green"
+        } else {
+            ctx.fillStyle = "yellow"
+        }
+        ctx.fillText(fps.toString(), 0, 8)
+
+        ctx.fillStyle = "white"
+        ctx.fillText(`Packets: ${this.packets.size} `, 0, 8*2)
+        ctx.fillText(`Hubs: ${this.hubs.size} `, 0, 8*3)
 
         this.frameCount += 1
         let frameTime = performance.now()
@@ -247,23 +257,24 @@ export class App {
     }
 
     drawPacket(packet: Packet, p1: [number, number], p2: [number, number]) {
+        let ctx = this.ctx
         let [x1, y1] = p1
         let dx = (p2[0] - p1[0]) * packet.TProgress
         let dy = (p2[1] - p1[1]) * packet.TProgress
         if (packet.isPOD) {
             const packetSize = 12
             const r = packetSize / 2
-            this.ctx.fillStyle = "red"
-            this.ctx.beginPath()
-            this.ctx.moveTo(x1+ dx, y1 + dy - r)
-            this.ctx.lineTo(x1 + dx + r, y1 + dy + r)
-            this.ctx.lineTo(x1 + dx - r, y1 + dy + r)
-            this.ctx.fill()
+            ctx.fillStyle = "red"
+            ctx.beginPath()
+            ctx.moveTo(x1+ dx, y1 + dy - r)
+            ctx.lineTo(x1 + dx + r, y1 + dy + r)
+            ctx.lineTo(x1 + dx - r, y1 + dy + r)
+            ctx.fill()
         } else {
             const packetSize = 4
             const r = packetSize / 2
-            this.ctx.fillStyle = intToColor(packet.target.id)
-            this.ctx.fillRect((x1 + dx) - r,
+            ctx.fillStyle = intToColor(packet.target.id)
+            ctx.fillRect((x1 + dx) - r,
                 (y1 + dy) - r,
                 packetSize, packetSize)
         }
