@@ -25,7 +25,5 @@ export function weight({ value, mode }: { value: number; mode: Weight; }): numbe
         case Weight.bell:
             let aw = value / 3 - 2;
             return Math.max(0.01, Math.exp(aw - aw ** 2 / 2) * 25)
-        default:
-            throw Error("Invalid mode");
     }
 }
