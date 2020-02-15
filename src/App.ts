@@ -6,7 +6,6 @@ import { RandomNumberGenerator } from "./rng";
 import Router from "worker-loader!./router";
 import { Pipe } from "./Pipe";
 
-export const globalRng = new RandomNumberGenerator()
 export const globalPacketPool: Packet[] = []
 export let globalNav: RouteInfo
 
@@ -17,6 +16,7 @@ export class App {
     frameCount = 0
     milisPerFrame = 0
     config: Config
+    rng = new RandomNumberGenerator()
 
     noRoute: Set<Hub> = new Set()
     walkingDead: Map<Hub, number> = new Map()
@@ -52,10 +52,17 @@ export class App {
 
         // generate package of death
         if (this.frameCount == 0 && this.config.packetOfDeath) {
-            this.packageOfDeath = Packet.makePacket(randomSelection(this.scene.hubs.values()), true);
+            let speed = this.randomPacketSpeed()
+            let travellingAtoB = true
+            let targetHub = randomSelection(this.scene.hubs.values())
+            this.packageOfDeath = Packet.makePacket(targetHub, travellingAtoB, speed);
             this.packets.add(this.packageOfDeath);
             randomSelection(this.scene.hubs.values()).receive(this.packageOfDeath);
         }
+    }
+
+    randomPacketSpeed(): number {
+        return (this.rng.random() * 1.5) + 0.5
     }
 
     get hubs(): Map<number, Hub> {
@@ -128,9 +135,11 @@ export class App {
             if (!globalNav.has(h.id))
                 continue;
 
-            if (globalRng.random() < this.config.packetSpawnChance) {
+            if (this.rng.random() < this.config.packetSpawnChance) {
                 let target = randomLiveSelection(this.hubs);
-                let p = Packet.makePacket(target);
+                let speed = this.randomPacketSpeed()
+                let travellingAtoB = undefined
+                let p = Packet.makePacket(target, travellingAtoB, speed)
                 this.packets.add(p);
                 h.receive(p);
             }
@@ -152,7 +161,7 @@ export class App {
                 }
                 factor = Math.max(factor, 0);
 
-                if (Math.floor(globalRng.random() * factor * this.config.addRemoveChance) == 0 && this.hubs.size > 3) {
+                if (Math.floor(this.rng.random() * factor * this.config.addRemoveChance) == 0 && this.hubs.size > 3) {
                     let hub = randomLiveSelection(this.hubs);
                     hub.isDead = true;
                     let surrogate = randomLiveSelection(this.hubs);
@@ -171,7 +180,7 @@ export class App {
                 factor = (this.config.nodeCount - nodeDiff / this.config.nodeCount);
             }
             factor = Math.max(factor, 0);
-            if (Math.floor(globalRng.random() * factor * this.config.addRemoveChance) == 0) {
+            if (Math.floor(this.rng.random() * factor * this.config.addRemoveChance) == 0) {
                 generateHub(this.hubs, this.pipes, this.width, this.height);
             }
         }
