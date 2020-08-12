@@ -4,12 +4,12 @@
     "repository": "https://github.com/nender/coffeeburn.git",
     "author": "Nathan Ender <nathan.ender@gmail.com>",
     "devDependencies": {
-        "typescript": "^2.9.2",
-        "worker-loader": "^2.0.0",
+        "http-server": "^0.12.3",
         "ts-loader": "^5.2.0",
-        "webpack": "^4.19.1",
-        "webpack-cli": "^3.1.1",
-        "http-server": "^0.11.1"
+        "typescript": "^2.9.2",
+        "webpack": "^4.44.1",
+        "webpack-cli": "^3.3.12",
+        "worker-loader": "^2.0.0"
     },
     "scripts": {
         "build": "node_modules/.bin/webpack",
