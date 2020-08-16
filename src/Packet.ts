@@ -1,5 +1,4 @@
 import { Hub } from "./Hub";
-import { getId } from "./burn";
 
 export class Packet {
     id!: number
@@ -14,12 +13,8 @@ export class Packet {
     TProgress!: number;
 
     
-    constructor(target: Hub, isPOD = false, speed: number, currentFrame: number) {
-        this.commonInit(target, isPOD, speed, currentFrame)
-    }
-
-    commonInit(target: Hub, isPOD = false, speed: number, currentFrame: number) {
-        this.id = getId()
+    constructor(id: number, target: Hub, isPOD = false, speed: number, currentFrame: number) {
+        this.id = id
         this.target = target
         this.isPOD = isPOD
         this.speed = speed

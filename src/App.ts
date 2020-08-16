@@ -1,5 +1,5 @@
 import { Config } from "./Config";
-import { Scene, intToColor, log, RouteInfo } from "./burn";
+import { Scene, intToColor, log, RouteInfo, getId } from "./burn";
 import { Packet } from "./Packet";
 import { Hub } from "./Hub";
 import { RandomNumberGenerator } from "./rng";
@@ -16,7 +16,6 @@ export class App {
     config: Config
     rng: RandomNumberGenerator
     nav: RouteInfo
-    packetPool: Packet[] = []
 
     noRoute: Set<Hub> = new Set()
     walkingDead: Map<Hub, number> = new Map()
@@ -285,19 +284,15 @@ export class App {
     }
 
     makeOrRecyclePacket(target: Hub, isPOD = false, speed: number, currentFrame: number): Packet {
-        if (this.packetPool.length != 0) {
-            let oldPacket = this.packetPool.pop()!
-            oldPacket.commonInit(target, isPOD, speed, currentFrame)
-            return oldPacket
-        }
-
-        return new Packet(target, isPOD, speed, currentFrame)
+        let id = getId()
+        return new Packet(id, target, isPOD, speed, currentFrame)
     }
 
     generateHub(hubs: Map<number, Hub>, pipes: Pipe[], width: number, height: number, rng: RandomNumberGenerator): void {
         let x = Math.floor(rng.random() * width)
         let y = Math.floor(rng.random() * height)
-        let newHub = new Hub(x, y)
+        let id = getId()
+        let newHub = new Hub(id, x, y)
         for (let x of hubs.values()) {
             this.addNeighbor(x, newHub, pipes)
             this.addNeighbor(newHub, x, pipes)

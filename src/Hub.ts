@@ -1,6 +1,6 @@
 import { Packet } from "./Packet";
 import { Pipe } from "./Pipe";
-import { getId, log } from "./burn";
+import { log } from "./burn";
 import { App } from "./App";
 
 export class Hub {
@@ -10,9 +10,9 @@ export class Hub {
     readonly neighbors: Map<Hub, Pipe>
     isDead: boolean
     
-    constructor(x: number, y: number) {
+    constructor(id: number, x: number, y: number) {
         this.position = [x, y]
-        this.id = getId()
+        this.id = id
         this.neighbors = new Map()
         this.isDead = false
     }
@@ -36,7 +36,6 @@ export class Hub {
         } else if (p.target === this) {
             log(`[Hub ${this.id}]: Accepted packet ${p.id}`)
             app.packets.delete(p)
-            app.packetPool.push(p)
             app.recordDeliveryStats(p)
             return
         }
