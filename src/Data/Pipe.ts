@@ -1,7 +1,7 @@
-import { Hub } from "./Hub";
-import { Packet } from "./Packet";
-import { weight, Weight } from "./weightFunctions";
-import { Config } from "./Config";
+import { Hub } from "./Hub"
+import { Packet } from "./Packet"
+import { weight, Weight } from "../weightFunctions"
+import { Config } from "../Config"
 
 export class Pipe {
     readonly ends: [Hub, Hub]

@@ -1,6 +1,6 @@
 import { RouteInfo } from './burn';
 import { weight, Weight } from './weightFunctions';
-import { Hub } from './Hub';
+import { Hub } from './Data/Hub';
 import { Config } from './Config';
 
 const ctx: Worker = self as any

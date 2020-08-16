@@ -1,4 +1,4 @@
-import { Pipe } from "./Pipe";
+import { Pipe } from "./Pipe"
 
 export class Hub {
     // x, y coordinates in world-space (i.e. in the range [0-1])

@@ -1,11 +1,12 @@
-import { Config } from "./Config";
-import { Scene, log, RouteInfo } from "./burn";
-import { Packet } from "./Packet";
-import { Hub } from "./Hub";
-import { RandomNumberGenerator } from "./rng";
-import Router from "worker-loader!./router";
-import { Pipe } from "./Pipe";
-import { routeInfoFor } from "./router";
+import { Config } from "./Config"
+import { log, RouteInfo } from "./burn"
+import { Packet } from "./Data/Packet"
+import { Hub } from "./Data/Hub"
+import { RandomNumberGenerator } from "./rng"
+import Router from "worker-loader!./router"
+import { Pipe } from "./Data/Pipe"
+import { Scene } from "./Data/Scene"
+import { routeInfoFor } from "./router"
 
 const getId = (function() {
     let id = 0

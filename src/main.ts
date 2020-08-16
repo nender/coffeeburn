@@ -1,6 +1,6 @@
-import { App } from "./App";
-import { Config } from "./Config";
-import { Renderer } from "./Renderer";
+import { App } from "./App"
+import { Config } from "./Config"
+import { Renderer } from "./Renderer"
 
 let config = new Config()
 let canvas = document.getElementById('canvas') as HTMLCanvasElement

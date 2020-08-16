@@ -1,4 +1,4 @@
-import { Hub } from "./Hub";
+import { Hub } from "./Hub"
 
 export class Packet {
     id: number

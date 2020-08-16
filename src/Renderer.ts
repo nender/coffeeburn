@@ -1,6 +1,6 @@
-import { Scene } from "./burn";
-import { Packet } from "./Packet";
-import { app } from "./main";
+import { Scene } from "./Data/Scene"
+import { Packet } from "./Data/Packet"
+import { app } from "./main"
 
 export const intToColor = (function() {
     const colorTable = new Map<number, string>()

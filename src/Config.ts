@@ -1,4 +1,4 @@
-import { Weight } from "./weightFunctions";
+import { Weight } from "./weightFunctions"
 
 export class Config {
     trafficWeight = Weight.linear
