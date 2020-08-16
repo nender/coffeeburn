@@ -2,7 +2,6 @@ import { Hub } from "./Hub";
 import { Packet } from "./Packet";
 import { weight, Weight } from "./weightFunctions";
 import { Config } from "./Config";
-import { App } from "./App";
 
 export class Pipe {
     readonly ends: [Hub, Hub]
@@ -76,29 +75,5 @@ export class Pipe {
         p.TProgress = 0
         this.inflight.add(p)
         this.incrementWeight()
-    }
-
-    step(app: App): void {
-        const delivered: Set<Packet> = new Set()
-        // loop through all the inflight packets, updating their status and making note
-        // of those which are complete
-        for (let packet of this.inflight) {
-            const newProgress = packet.TProgress + packet.speed * this.traffic() / this.distance()
-            
-            if (newProgress < 1)
-                packet.TProgress = newProgress
-            else
-                delivered.add(packet)
-        }
-        
-        for (let packet of delivered) {
-            this.inflight.delete(packet)
-            if (packet.TAToB)
-                this.ends[1].receive(packet, app)
-            else
-                this.ends[0].receive(packet, app)
-        }
-        
-        this.decrementWeight()
     }
 }

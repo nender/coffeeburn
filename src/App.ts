@@ -55,9 +55,8 @@ export class App {
             let targetHub = this.rng.randomSelection(this.scene.hubs.values())
             this.packageOfDeath = this.makeOrRecyclePacket(targetHub, travellingAtoB, speed, this.frameCount)
             this.packets.add(this.packageOfDeath)
-            this.rng
-                .randomSelection(this.scene.hubs.values())
-                .receive(this.packageOfDeath, this)
+            const h = this.rng.randomSelection(this.scene.hubs.values())
+            this.hubReceive(h, this.packageOfDeath, this)
         }
     }
 
@@ -120,7 +119,7 @@ export class App {
 
         // advance all packets
         for (let p of this.pipes)
-            p.step(this)
+            this.pipeStep(p, this)
 
         // add new packages
         for (let h of this.hubs.values()) {
@@ -142,7 +141,7 @@ export class App {
                 let travellingAtoB = undefined
                 let p = this.makeOrRecyclePacket(target, travellingAtoB, speed, this.frameCount)
                 this.packets.add(p)
-                h.receive(p, this)
+                this.hubReceive(h, p, this)
             }
         }
 
@@ -190,6 +189,62 @@ export class App {
             this.router.postMessage([this.hubs, this.config])
             this.requestRoutingRefresh = false
         }
+    }
+
+    hubReceive(h: Hub, p: Packet, app: App): void {
+        if (p.isPOD) {
+            if (!h.isDead) {
+                h.isDead = true
+                log(`[Hub ${h.id}]: Killed by POD`)
+                let surrogate = app.randomLiveHub()
+                for (let p of app.packets)
+                    if (p.target == h)
+                        p.target = surrogate
+            }
+
+            if (p.target === h) {
+                p.target = app.randomLiveHub()
+                log(`[Hub ${h.id}]: Rerouting POD to ${p.target.id}`)
+            }
+
+        } else if (p.target === h) {
+            log(`[Hub ${h.id}]: Accepted packet ${p.id}`)
+            app.packets.delete(p)
+            app.recordDeliveryStats(p)
+            return
+        }
+
+        if (h.neighbors.size === 0)
+            throw "No links"
+        const nexthopID = app.nav.get(p.target.id)!.get(h.id)!
+        const nextHop = app.hubs.get(nexthopID)!
+        let pipe = h.neighbors.get(nextHop)!
+        pipe.receive(p, nextHop)
+        log(`[Hub ${h.id}]: Sent ${p.id} towards ${nextHop.id}`)
+    }
+
+    pipeStep(p: Pipe, app: App): void {
+        const delivered: Set<Packet> = new Set()
+        // loop through all the inflight packets, updating their status and making note
+        // of those which are complete
+        for (let packet of p.inflight) {
+            const newProgress = packet.TProgress + packet.speed * p.traffic() / p.distance()
+            
+            if (newProgress < 1)
+                packet.TProgress = newProgress
+            else
+                delivered.add(packet)
+        }
+        
+        for (let packet of delivered) {
+            p.inflight.delete(packet)
+            if (packet.TAToB)
+                this.hubReceive(p.ends[1], packet, app)
+            else
+                this.hubReceive(p.ends[0], packet, app)
+        }
+        
+        p.decrementWeight()
     }
 
     render(): void {
